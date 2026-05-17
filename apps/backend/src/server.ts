@@ -53,9 +53,14 @@ export async function buildServer() {
   const fastify = Fastify({ logger: true });
 
   // CORS
+  // When ALLOWED_ORIGINS=['*'] (set via env on HF Spaces or public deployments),
+  // we allow all origins. Note: credentials:true requires a non-wildcard origin
+  // when the request sends cookies/auth headers. For API-key-in-header pattern
+  // we don't need credentials:true when origin is '*'.
+  const isWildcard = config.ALLOWED_ORIGINS.length === 1 && config.ALLOWED_ORIGINS[0] === '*';
   await fastify.register(cors, {
-    origin: config.ALLOWED_ORIGINS,
-    credentials: true,
+    origin: isWildcard ? '*' : config.ALLOWED_ORIGINS,
+    credentials: !isWildcard,
   });
 
   // In-flight builds map: bundle_id → { state, emitter }
@@ -430,23 +435,99 @@ export async function buildServer() {
 
     const html = `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Board Game</title>
   <style>
-    body { margin: 0; font-family: sans-serif; }
-    #game { width: 100vw; height: 100vh; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; }
+    #game { width: 100vw; min-height: 100vh; }
+    #loader {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      background: #0f172a; z-index: 100;
+    }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid #334155;
+      border-top-color: #6366f1; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #error-box {
+      display: none; position: fixed; inset: 0; align-items: center;
+      justify-content: center; background: #0f172a; z-index: 200;
+    }
+    #error-box.visible { display: flex; }
+    .error-card {
+      background: #1e293b; border: 1px solid #ef4444; border-radius: 12px;
+      padding: 32px; max-width: 480px; text-align: center;
+    }
+    .error-card h2 { margin: 0 0 12px; color: #ef4444; font-size: 1.25rem; }
+    .error-card p { margin: 0; color: #94a3b8; font-size: 0.9rem; line-height: 1.6; }
+    .error-card code { color: #fbbf24; font-size: 0.8rem; }
   </style>
 </head>
 <body>
+  <div id="loader">
+    <div class="spinner"></div>
+    <span style="color:#94a3b8;font-size:0.9rem">Loading game…</span>
+  </div>
+
+  <div id="error-box">
+    <div class="error-card">
+      <h2>⚠️ Game failed to load</h2>
+      <p id="error-msg">An error occurred while loading the game engine.</p>
+      <p style="margin-top:12px">
+        Bundle ID: <code>${id}</code><br>
+        Try rebuilding the game or check the server logs.
+      </p>
+    </div>
+  </div>
+
   <div id="game"></div>
+
   <script>
     window.BUNDLE_ID = '${id}';
     window.BUNDLE_URL = '/bundles/${id}/bundle.json';
+
+    // Hide loader once game initialises
+    window.__gameMounted = function() {
+      document.getElementById('loader').style.display = 'none';
+    };
+
+    // Show error if game.js throws or if it never calls __gameMounted
+    window.onerror = function(msg, src, line, col, err) {
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('error-msg').textContent =
+        (err && err.message) ? err.message : String(msg);
+      document.getElementById('error-box').classList.add('visible');
+      return true;
+    };
+
+    // Timeout fallback: if __gameMounted not called within 10s, show error
+    var mountTimeout = setTimeout(function() {
+      if (document.getElementById('loader').style.display !== 'none') {
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('error-msg').textContent =
+          'game.js loaded but did not initialise within 10 seconds. ' +
+          'The game engine may be missing or malformed.';
+        document.getElementById('error-box').classList.add('visible');
+      }
+    }, 10000);
+
+    window.__gameMounted = function() {
+      clearTimeout(mountTimeout);
+      document.getElementById('loader').style.display = 'none';
+    };
   </script>
-  <script src="/bundles/${id}/game.js"></script>
+  <script src="/bundles/${id}/game.js" onerror="
+    clearTimeout(mountTimeout);
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('error-msg').textContent = 'game.js could not be loaded. The file may be missing or the build failed.';
+    document.getElementById('error-box').classList.add('visible');
+  "></script>
 </body>
 </html>
     `;

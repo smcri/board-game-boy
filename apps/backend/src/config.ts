@@ -9,6 +9,9 @@ const ConfigSchema = z.object({
   DATA_DIR: z.string().default('./.data'),
   BUNDLES_DIR: z.string().default('./bundles'),
   SQLITE_PATH: z.string().optional(),
+  // Comma-separated list of allowed origins, or '*' for all origins (e.g. Hugging Face Spaces).
+  // Local dev default: localhost Vite dev server.
+  // Production (HF): set ALLOWED_ORIGINS=* in Dockerfile or Space secrets.
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173,http://127.0.0.1:5173').transform((s) => s.split(',')),
   OLLAMA_BASE_URL: z.string().optional(),
   // eslint-disable-next-line no-restricted-syntax -- log level is server-only; not a cross-cutting enum
