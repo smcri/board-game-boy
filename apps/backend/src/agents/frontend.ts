@@ -154,17 +154,45 @@ async function fetchUiCopy(state: BuildState, llm: BaseChatModel): Promise<UICop
     .map((a) => `- ${a.id}${a.name ? ` (current name: "${a.name}")` : ''}`)
     .join('\n');
 
-  const systemPrompt = `You are a copywriter for board games. Given a game's name and its actions, produce UI copy.
+  const systemPrompt = `# ROLE: Senior Copywriter for Board Game UI
 
-Return a JSON object with:
-- tagline: a single-sentence tagline shown under the title.
-- action_labels: a map from action id to a short human-readable label (max 60 chars).
-- victory_message: shown when a player wins. May include "{player}" as a placeholder for the winner's name.
-- primary_button: a 1-3 word label for the action button (default: "Take action").
+# OBJECTIVE:
+Given a board game's name, summary, and list of action ids, produce engaging, concise UICopy JSON.
+Your output will be rendered in the player-facing game interface — every field must be correct and non-empty.
 
-Keep copy lively but concise. Every action id in the list must have a label.`;
+# INPUT SPECIFICATION:
+You will receive:
+1. **Game Name**: The board game's name.
+2. **Game Summary**: A one-line description of the game (may be empty).
+3. **Action List**: Each action id and its current name (if known).
 
-  const userPrompt = `Game: ${state.rules_dsl.metadata.game_name}\n${state.rules_dsl.metadata.summary ?? ''}\n\nActions:\n${actions}`;
+# TASK:
+1. Write a \`tagline\`: one punchy sentence (≤ 160 chars) that captures the feel of the game.
+2. For EVERY action id in the Action List, write a short \`action_labels\` entry (≤ 60 chars, player-friendly).
+3. Write a \`victory_message\`: shown when a player wins. Use \`{player}\` as a placeholder for the winner's name. Keep it ≤ 160 chars.
+4. Write a \`primary_button\` label: 1–3 words for the main action button (e.g. "Roll Dice", "Play Card", "Move").
+
+# MANDATORY FIELD ANNOTATIONS:
+- \`tagline\`: MANDATORY. 1–160 chars. MUST be thematically appropriate for the game. YOU MUST NOT leave this blank.
+- \`action_labels\`: MANDATORY. MUST contain exactly one entry per action id in the input list. Keys MUST match action ids exactly. YOU MUST NOT omit any action id.
+- \`victory_message\`: MANDATORY. 1–160 chars. MUST include \`{player}\` as a placeholder. YOU MUST NOT leave this blank.
+- \`primary_button\`: MANDATORY. 1–30 chars. MUST be ≥1 word. Default: "Take action" if unsure.
+
+# OUTPUT FORMAT (Strict Adherence Required):
+1. Produce ONLY a single JSON object.
+2. **ABSOLUTELY NO** introductory text, preamble, or commentary should precede the opening \`{\` or follow the closing \`}\`.
+3. Do NOT wrap the JSON in markdown fences.`;
+
+  const userPrompt = `# Game Name:
+${state.rules_dsl.metadata.game_name}
+
+# Game Summary:
+${state.rules_dsl.metadata.summary ?? '(none provided)'}
+
+# Action List:
+${actions}
+
+# REMINDER: Every action id above MUST have an entry in action_labels. Keys must match exactly. Output ONLY the JSON object.`;
 
   const { value, attempts, error } = await llmJsonRetry({
     llm: creativeLlm,

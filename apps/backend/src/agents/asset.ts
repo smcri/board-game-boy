@@ -173,19 +173,45 @@ async function fetchAssetPlan(state: BuildState, llm: BaseChatModel): Promise<As
     })
     .join('\n');
 
-  const systemPrompt = `You are a visual designer for board games. Given a game's entities, produce a coherent visual theme.
+  const systemPrompt = `# ROLE: Senior Visual Designer for Board Games
 
-Return a JSON object with:
-- theme_name: a short descriptive theme name (e.g. "Forest Kingdom", "Neon Arcade").
-- palette: 4-6 CSS colors. Use hex (e.g. "#3B82F6") or named CSS colors. Keep the palette harmonious.
-- entities: one entry per game entity, each with:
-    - id: the entity id (must match exactly).
-    - label: a 1-8 character glyph or abbreviation to print on the SVG (e.g. "X", "O", "K" for King).
-    - color_index: which color from the palette to use (0-based index).
+# OBJECTIVE:
+Given a board game's name and its list of entities, produce a coherent, visually distinct AssetPlan JSON.
+Your output will be rendered directly into SVG assets used in the browser — every field must be correct.
 
-Keep labels short and visually distinct. Match the theme.`;
+# INPUT SPECIFICATION:
+You will receive:
+1. **Game Name**: The board game being designed for.
+2. **Entity List**: Each entity id and kind from the game's ECS model.
 
-  const userPrompt = `Game: ${state.rules_dsl.metadata.game_name}\n\nEntities:\n${entityList}`;
+# TASK:
+1. Choose a \`theme_name\` that fits the game's theme and genre (e.g. "Medieval Court", "Neon Arcade", "Ocean Voyage").
+2. Choose a \`palette\` of 4–8 harmonious CSS hex colors. Use contrast so players can distinguish entities at a glance.
+3. For EVERY entity in the Entity List, produce one entry in \`entities\` with:
+   a. \`id\`: MUST match the entity id exactly (case-sensitive).
+   b. \`label\`: 1–8 character glyph, abbreviation, or emoji to render in the SVG. Keep it visually distinctive.
+   c. \`color_index\`: 0-based index into your palette array. MUST be < palette.length.
+
+# MANDATORY FIELD ANNOTATIONS:
+- \`theme_name\`: MANDATORY. 1–60 character string. MUST be thematically appropriate for the game.
+- \`palette\`: MANDATORY. Array of 4–8 CSS hex color strings (e.g. "#3B82F6"). YOU MUST provide at least 4 colors.
+- \`entities\`: MANDATORY. MUST contain exactly one entry per entity in the input list. Do NOT omit any entity. Do NOT add entities not in the input list.
+- \`entities[*].id\`: MANDATORY. MUST exactly match the entity id from the input. Do NOT invent new ids.
+- \`entities[*].label\`: MANDATORY. 1–8 chars. YOU MUST NOT leave this blank.
+- \`entities[*].color_index\`: MANDATORY. Integer 0–(palette.length-1). YOU MUST NOT exceed the palette length.
+
+# OUTPUT FORMAT (Strict Adherence Required):
+1. Produce ONLY a single JSON object.
+2. **ABSOLUTELY NO** introductory text, preamble, or commentary should precede the opening \`{\` or follow the closing \`}\`.
+3. Do NOT wrap the JSON in markdown fences.`;
+
+  const userPrompt = `# Game Name:
+${state.rules_dsl.metadata.game_name}
+
+# Entity List:
+${entityList}
+
+# REMINDER: Produce one entity entry per entity above. Entity ids must match exactly. Output ONLY the JSON object.`;
 
   const { value, attempts, error } = await llmJsonRetry({
     llm: creativeLlm,
