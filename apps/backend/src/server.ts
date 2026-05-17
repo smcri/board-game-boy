@@ -243,11 +243,35 @@ export async function buildServer() {
         }
       }
 
+      // Resume must re-supply the API key via headers — keys are never
+      // persisted in the in-memory state map (and would be scrubbed from any
+      // persisted copy). Header takes priority; fall back to whatever is in
+      // the build's state for the rare case the client kept the original
+      // value alive.
+      const resumeLlmKey =
+        readKeyHeader(request.headers as Record<string, unknown>, 'x-llm-api-key') ??
+        build.state.llm_api_key;
+      const resumeSearchKey =
+        readKeyHeader(request.headers as Record<string, unknown>, 'x-search-api-key') ??
+        build.state.search_api_key;
+
+      // Carry both keys forward in the state so any downstream node that
+      // re-reads them (asset_agent, frontend_agent) doesn't see undefined.
+      resumedState.llm_api_key = resumeLlmKey;
+      resumedState.search_api_key = resumeSearchKey;
+
       // Update the stored state
       build.state = resumedState;
 
+      if (!resumeLlmKey) {
+        return reply.status(400).send({
+          error:
+            'Resume requires the LLM API key in the x-llm-api-key header (keys are never persisted server-side).',
+        });
+      }
+
       // Re-invoke graph to continue from checkpoint
-      const llm = await makeLlm(build.state.llm_provider, build.state.llm_model, build.state.llm_api_key);
+      const llm = await makeLlm(build.state.llm_provider, build.state.llm_model, resumeLlmKey);
       const resumedPromise = runBuild(resumedState, llm);
       builds.set(id, { state: resumedState, promise: resumedPromise });
 
