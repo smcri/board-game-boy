@@ -102,7 +102,13 @@ export async function frontendAgent(state: BuildState, llm: BaseChatModel): Prom
 
     // LLM-driven UI copy (player-facing labels, tagline, victory message).
     // Always falls back to deterministic copy if the LLM call fails.
-    const uiCopy = (await fetchUiCopy(state)) ?? buildFallbackUiCopy(state);
+    const uiCopy = await fetchUiCopy(state);
+    if (!uiCopy) {
+      throw new Error(
+        'frontend_agent: LLM failed to produce valid UI copy after all retry attempts. ' +
+        'Check your API key, model availability, and the rules_agent output.',
+      );
+    }
     writeFileSync(join(scratchDir, 'ui-copy.json'), JSON.stringify(uiCopy, null, 2));
 
     return {

@@ -68,7 +68,13 @@ export async function assetAgent(state: BuildState, llm: BaseChatModel): Promise
 
     // 1. Ask the LLM for a coherent asset plan (theme, palette, glyphs).
     //    Falls back to a deterministic plan if the LLM fails.
-    const plan = (await fetchAssetPlan(state)) ?? buildFallbackPlan(state);
+    const plan = await fetchAssetPlan(state);
+    if (!plan) {
+      throw new Error(
+        'asset_agent: LLM failed to produce a valid AssetPlan after all retry attempts. ' +
+        'Check your API key, model availability, and the rules_agent output.',
+      );
+    }
 
     // 2. Apply the plan deterministically: walk entities, write SVGs, build manifest.
     const entries: AssetEntry[] = [];
