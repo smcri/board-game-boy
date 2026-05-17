@@ -506,6 +506,9 @@ export async function buildServer() {
   <div id="game"></div>
 
   <script>
+    // Polyfill Node globals that React dev builds reference in browser context.
+    window.process = window.process || { env: { NODE_ENV: 'production' } };
+
     window.BUNDLE_ID = '${id}';
     window.BUNDLE_URL = '/bundles/${id}/bundle.json';
 
