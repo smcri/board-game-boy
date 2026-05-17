@@ -5,7 +5,7 @@
  * CLOSED: gap 1 - SqliteSaver checkpointer integrated
  * CLOSED: gap 2 - conditional edge for core_mechanic conflicts
  */
-import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
+import { StateGraph, START, END, Annotation, MemorySaver } from '@langchain/langgraph';
 import type { BuildState } from '@bgb/shared';
 
 /**
@@ -85,6 +85,15 @@ import { SqliteSaver } from './checkpoint.js';
  * @param llm - Language model to use for agents
  * @param threadId - Thread ID for checkpoint persistence (optional; if not provided, no state persistence)
  */
+/**
+ * Process-lifetime checkpointer. Lives in-process so HITL interrupt()/resume
+ * within a single backend run works correctly. Does NOT survive restarts —
+ * for cross-restart resume we'd need a BaseCheckpointSaver-compatible
+ * persistent backend (commit-2 follow-up). For an MVP this is the right
+ * trade: real LangGraph resume semantics with zero native deps.
+ */
+const sharedCheckpointer = new MemorySaver();
+
 export function createGraph(llm: BaseChatModel, _threadId?: string) {
   const workflow = new StateGraph(BuildStateAnnotation)
     .addNode('classify', async (state) => {
@@ -123,10 +132,11 @@ export function createGraph(llm: BaseChatModel, _threadId?: string) {
     .addEdge('frontend_agent', 'assembler')
     .addEdge('assembler', END);
 
-  // NOTE: process-restart-resume via an LLM-managed checkpointer requires a
-  // BaseCheckpointSaver-compatible class. Our local libsql-backed SqliteSaver
-  // shim persists state out-of-band; full graph resume is tracked in commit 2.
-  return workflow.compile();
+  // Compile with checkpointer so interrupt() and resume work via thread_id.
+  // The shared module-level MemorySaver means all builds in a single backend
+  // process can be paused at conflict_review and resumed via POST
+  // /builds/:id/resume with the same thread_id (the build's bundle_id).
+  return workflow.compile({ checkpointer: sharedCheckpointer });
 }
 
 /**

@@ -92,7 +92,7 @@ describe('Build Graph', () => {
     });
 
     // Run the graph
-    const finalState = await graph.invoke(initialState);
+    const finalState = await graph.invoke(initialState, { configurable: { thread_id: initialState.bundle_id } });
 
     expect(finalState.bundle_id).toBe('test-bundle');
     expect(finalState.rules_dsl).toBeDefined();
@@ -130,7 +130,7 @@ describe('Build Graph', () => {
 
     // Run should complete but with error status
     try {
-      await graph.invoke(initialState);
+      await graph.invoke(initialState, { configurable: { thread_id: initialState.bundle_id } });
     } catch {
       // Expected to throw
     }
@@ -165,7 +165,7 @@ describe('Build Graph', () => {
       }
     });
 
-    await graph.invoke(initialState);
+    await graph.invoke(initialState, { configurable: { thread_id: initialState.bundle_id } });
 
     // Verify expected node sequence
     const nodeSequence = [...new Set(events)]; // Remove duplicates
