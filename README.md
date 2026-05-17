@@ -1,3 +1,15 @@
+---
+title: Board Game Builder
+emoji: 🎲
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Turn any board game name into a browser-playable game using AI
+---
+
 # Agentic Board Game Builder
 
 > Turn a board-game name or a rules document into a browser-playable game,
