@@ -177,14 +177,17 @@ export async function buildServer() {
   fastify.get('/builds/:id/stream', async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    // Set SSE headers — let @fastify/cors handle Access-Control-Allow-Origin
-    reply
-      .code(200)
-      .header('Content-Type', 'text/event-stream')
-      .header('Cache-Control', 'no-cache')
-      .header('Connection', 'keep-alive');
-    // Flush headers immediately so the browser opens the event stream
-    // without waiting for the first data event (avoids proxy buffering).
+    // Set SSE headers directly on the raw stream then flush immediately.
+    // Using reply.raw.setHeader() + flushHeaders() (not reply.header() which
+    // is only written when the Fastify handler returns, too late for SSE).
+    // CORS header is added by @fastify/cors before this handler runs via the
+    // onRequest hook — we do not need to set it manually.
+    reply.raw.statusCode = 200;
+    reply.raw.setHeader('Content-Type', 'text/event-stream');
+    reply.raw.setHeader('Cache-Control', 'no-cache');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    // Hijack the reply so Fastify doesn't try to write its own headers after us.
+    reply.hijack();
     reply.raw.flushHeaders();
 
     const emitter = getSseEmitter(id);
