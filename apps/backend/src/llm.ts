@@ -28,18 +28,21 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
       return new ChatOpenAI({
         modelName: model,
         apiKey: apiKey || process.env.OPENAI_API_KEY,
+        temperature: 0,
       });
 
     case 'anthropic':
       return new ChatAnthropic({
         modelName: model,
         apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
+        temperature: 0,
       });
 
     case 'ollama':
       return new ChatOllama({
         model,
         baseUrl: config.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
+        temperature: 0,
       });
 
     case 'groq':
@@ -49,6 +52,7 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
       return new ChatOpenAI({
         modelName: model,
         apiKey: apiKey || process.env.GROQ_API_KEY,
+        temperature: 0,
         configuration: {
           baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
         },
@@ -60,6 +64,7 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
       return new ChatOpenAI({
         modelName: model,
         apiKey: apiKey || process.env.XAI_API_KEY,
+        temperature: 0,
         configuration: {
           baseURL: process.env.XAI_BASE_URL || 'https://api.x.ai/v1',
         },
