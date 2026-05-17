@@ -30,24 +30,45 @@ import { BuildState, Conflict, RulesDsl } from '@bgb/shared';
 import { getSseEmitter } from '../sse.js';
 import { _resetDbForTests } from '../db.js';
 
+/** Minimal valid AssetPlan for mock LLM responses. */
+const MOCK_ASSET_PLAN = {
+  theme_name: 'Test Theme',
+  palette: ['#111111', '#222222', '#333333', '#444444'],
+  entities: [],
+};
+
+/** Minimal valid UICopy for mock LLM responses. */
+const MOCK_UI_COPY = {
+  tagline: 'A test game.',
+  action_labels: {},
+  victory_message: '{player} wins!',
+  primary_button: 'Go',
+};
+
+/** Minimal valid RulesDsl for mock LLM responses. */
+const MOCK_RULES_DSL: RulesDsl = {
+  dsl_version: '1.0',
+  metadata: { game_name: 'Test Game', min_players: 2, max_players: 4 },
+  entities: [],
+  actions: [],
+  win_conditions: [],
+  conflicts: [],
+};
+
 class MockLLM {
-  async invoke(_messages: unknown[]): Promise<RulesDsl> {
-    return {
-      dsl_version: '1.0',
-      metadata: {
-        game_name: 'Test Game',
-        min_players: 2,
-        max_players: 4,
-      },
-      entities: [],
-      actions: [],
-      win_conditions: [],
-      conflicts: [],
-    };
+  private _schemaName = '';
+
+  async invoke(_messages: unknown[]): Promise<unknown> {
+    // Return schema-appropriate mock based on the last withStructuredOutput call
+    if (this._schemaName === 'AssetPlan') return MOCK_ASSET_PLAN;
+    if (this._schemaName === 'UICopy') return MOCK_UI_COPY;
+    return MOCK_RULES_DSL;
   }
 
-  withStructuredOutput(schema: unknown, _opts: { name: string }): MockLLM {
-    return this;
+  withStructuredOutput(_schema: unknown, opts: { name: string }): MockLLM {
+    const clone = new MockLLM();
+    clone._schemaName = opts?.name ?? '';
+    return clone;
   }
 }
 

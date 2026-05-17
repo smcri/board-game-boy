@@ -102,7 +102,7 @@ export async function frontendAgent(state: BuildState, llm: BaseChatModel): Prom
 
     // LLM-driven UI copy (player-facing labels, tagline, victory message).
     // Always falls back to deterministic copy if the LLM call fails.
-    const uiCopy = await fetchUiCopy(state);
+    const uiCopy = await fetchUiCopy(state, llm);
     if (!uiCopy) {
       throw new Error(
         'frontend_agent: LLM failed to produce valid UI copy after all retry attempts. ' +
@@ -132,12 +132,13 @@ export async function frontendAgent(state: BuildState, llm: BaseChatModel): Prom
 /**
  * Ask the LLM for UI copy. Returns null if all retry attempts fail.
  */
-async function fetchUiCopy(state: BuildState): Promise<UICopy | null> {
+async function fetchUiCopy(state: BuildState, llm: BaseChatModel): Promise<UICopy | null> {
   if (!state.rules_dsl) return null;
   // UI copy (button labels, victory message) is creative — use a higher
   // temperature so two rebuilds produce different flavor text.
-  // If we can't create the creative LLM (e.g. missing key in tests), fall back.
-  let creativeLlm;
+  // Use a higher-temperature LLM for creative work. If we can't build one
+  // (e.g. missing key in tests), fall back to the standard LLM passed in.
+  let creativeLlm: BaseChatModel;
   try {
     creativeLlm = await makeLlm(
       state.llm_provider,
@@ -146,8 +147,8 @@ async function fetchUiCopy(state: BuildState): Promise<UICopy | null> {
       0.7,
     );
   } catch (err) {
-    logger.warn({ err: String(err) }, 'frontend_agent: creative LLM unavailable, using fallback');
-    return null;
+    logger.warn({ err: String(err) }, 'frontend_agent: creative LLM unavailable, using standard LLM');
+    creativeLlm = llm;
   }
   const actions = state.rules_dsl.actions
     .map((a) => `- ${a.id}${a.name ? ` (current name: "${a.name}")` : ''}`)

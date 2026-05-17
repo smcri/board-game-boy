@@ -68,7 +68,7 @@ export async function assetAgent(state: BuildState, llm: BaseChatModel): Promise
 
     // 1. Ask the LLM for a coherent asset plan (theme, palette, glyphs).
     //    Falls back to a deterministic plan if the LLM fails.
-    const plan = await fetchAssetPlan(state);
+    const plan = await fetchAssetPlan(state, llm);
     if (!plan) {
       throw new Error(
         'asset_agent: LLM failed to produce a valid AssetPlan after all retry attempts. ' +
@@ -148,12 +148,13 @@ export async function assetAgent(state: BuildState, llm: BaseChatModel): Promise
  * Build an LLM prompt for the AssetPlan and return the parsed plan,
  * or null if all retry attempts fail.
  */
-async function fetchAssetPlan(state: BuildState): Promise<AssetPlan | null> {
+async function fetchAssetPlan(state: BuildState, llm: BaseChatModel): Promise<AssetPlan | null> {
   if (!state.rules_dsl) return null;
   // Theme + glyph generation is creative — use a higher temperature so two
   // rebuilds of the same game produce visually distinct palettes/labels.
-  // If we can't create the creative LLM (e.g. missing key in tests), fall back.
-  let creativeLlm;
+  // Use a higher-temperature LLM for creative work. If we can't build one
+  // (e.g. missing key in tests), fall back to the standard LLM passed in.
+  let creativeLlm: BaseChatModel;
   try {
     creativeLlm = await makeLlm(
       state.llm_provider,
@@ -162,8 +163,8 @@ async function fetchAssetPlan(state: BuildState): Promise<AssetPlan | null> {
       0.7,
     );
   } catch (err) {
-    logger.warn({ err: String(err) }, 'asset_agent: creative LLM unavailable, using fallback');
-    return null;
+    logger.warn({ err: String(err) }, 'asset_agent: creative LLM unavailable, using standard LLM');
+    creativeLlm = llm;
   }
   const entityList = state.rules_dsl.entities
     .map((e) => {
