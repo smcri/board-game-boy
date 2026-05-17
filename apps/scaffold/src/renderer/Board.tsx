@@ -18,6 +18,7 @@ interface BoardProps {
   currentPlayer: EntityId | undefined;
   assetManifest?: Record<string, unknown>;
   storeVersion?: string; // opaque string that changes on every state update — forces re-render
+  onAction?: (actionId: string, params: Record<string, unknown>) => void;
 }
 
 /**
@@ -29,6 +30,7 @@ export const Board: React.FC<BoardProps> = ({
   currentPlayer,
   assetManifest,
   storeVersion: _storeVersion, // consumed only to trigger re-render; not passed to children
+  onAction,
 }) => {
   const boardNodes = store.getEntities('BoardNode');
 
@@ -37,6 +39,7 @@ export const Board: React.FC<BoardProps> = ({
     boardConfig,
     currentPlayer,
     assetManifest,
+    onAction,
   };
 
   switch (boardConfig.kind) {
