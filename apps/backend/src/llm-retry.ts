@@ -125,16 +125,19 @@ export async function llmJsonRetry<T extends z.ZodTypeAny>(
     }
   }
 
-  // Attempt 3 — lenient
+  // Attempt 3 — strict schema correction (no leniency; full schema attached)
+  // We never soften the schema requirements. Instead we give the LLM one more
+  // chance with the full target schema so it can self-correct precisely.
   if (!value && attempts < maxAttempts) {
     try {
-      await tryOnce(
-        'Be lenient with the schema; fill in defaults where needed. Prefer valid JSON over precision.',
-        '',
-      );
+      const schemaHint =
+        `Your last response still did not match the required schema.\n` +
+        `Here are the remaining validation errors:\n${error ?? 'unknown'}\n\n` +
+        `Fix EVERY listed error. Produce ONLY a valid JSON object. No markdown, no commentary.`;
+      await tryOnce(schemaHint, '');
     } catch (err) {
       error = String(err);
-      logger.warn({ tag, error }, 'llmJsonRetry attempt 3 (lenient) failed');
+      logger.warn({ tag, error }, 'llmJsonRetry attempt 3 (schema-correction) failed');
     }
   }
 
