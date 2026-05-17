@@ -7,6 +7,7 @@
  * - Reconciles conflicts
  */
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { BuildState, RulesDsl, COMPONENT_REGISTRY } from '@bgb/shared';
 import { runSearch } from '../web/search.js';
 import { bucketByPriority } from '../web/bucket.js';
@@ -117,8 +118,8 @@ export async function rulesAgent(state: BuildState, llm: BaseChatModel): Promise
     try {
       const structuredLlm = withStructuredOutput(llm, RulesDsl, { name: 'RulesDsl' });
       const result = await structuredLlm.invoke([
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        new SystemMessage(systemPrompt),
+        new HumanMessage(userPrompt),
       ]);
 
       if (result instanceof z.ZodError) {
@@ -133,8 +134,8 @@ export async function rulesAgent(state: BuildState, llm: BaseChatModel): Promise
       try {
         const structuredLlm = withStructuredOutput(llm, RulesDsl, { name: 'RulesDsl' });
         const result = await structuredLlm.invoke([
-          { role: 'system', content: systemPrompt + '\n\nBe lenient with the schema; fill in defaults where needed.' },
-          { role: 'user', content: userPrompt },
+          new SystemMessage(systemPrompt + '\n\nBe lenient with the schema; fill in defaults where needed.'),
+          new HumanMessage(userPrompt),
         ]);
         if (!(result instanceof z.ZodError)) {
           rules_dsl = result;

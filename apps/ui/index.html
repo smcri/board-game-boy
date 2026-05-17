@@ -10,13 +10,19 @@
       CSP (Content Security Policy) meta tag.
       Trade-off: We use 'unsafe-inline' for styles because Tailwind injects them at runtime.
       For a production app, you'd extract Tailwind to a separate CSS file and remove 'unsafe-inline'.
-      connect-src includes VITE_BACKEND_URL (replaced at build time via Vite's SSR/plugin approach,
-      or set as a JS global constant loaded from env).
-      See src/config.ts for how the backend URL is sourced.
+
+      connect-src must include every origin the UI is allowed to fetch from.
+      We deliberately include http://localhost:8787 and http://127.0.0.1:8787
+      (the default dev backend) and ws://localhost:5173 (Vite HMR). For
+      production you should either:
+        a) serve UI and backend from the same origin and drop the localhost
+           entries (recommended — simplest CSP), or
+        b) replace the localhost entries with your deployed backend origin
+           (e.g. https://your-space.hf.space).
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+      content="default-src 'self'; connect-src 'self' https: http://localhost:8787 http://127.0.0.1:8787 ws://localhost:5173 ws://127.0.0.1:5173; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'"
     />
 
     <meta name="description" content="Design playable board games using AI" />

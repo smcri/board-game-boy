@@ -5,8 +5,71 @@
  * CLOSED: gap 1 - SqliteSaver checkpointer integrated
  * CLOSED: gap 2 - conditional edge for core_mechanic conflicts
  */
-import { StateGraph, START, END } from '@langchain/langgraph';
+import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import type { BuildState } from '@bgb/shared';
+
+/**
+ * Typed state-graph annotation. Each channel matches a BuildState field; the
+ * `default` factory provides the initial value and the `reducer` controls
+ * merge semantics on every node return.
+ *
+ * Conventions:
+ *   - Scalar inputs (bundle_id, prompt, mode, llm_*) overwrite (last write wins).
+ *   - `errors` appends with simple dedupe so repeated retries don't spam the bundle.
+ *   - All other fields overwrite (rules_dsl, asset_manifest, etc.) so that a
+ *     node returning a fresh artifact replaces the prior partial artifact.
+ */
+const BuildStateAnnotation = Annotation.Root({
+  bundle_id: Annotation<string>({ reducer: (_o, n) => n, default: () => '' }),
+  prompt: Annotation<string>({ reducer: (_o, n) => n, default: () => '' }),
+  mode: Annotation<BuildState['mode']>({
+    reducer: (_o, n) => n,
+    default: () => 'known_game',
+  }),
+  custom_rules: Annotation<string | undefined>({ reducer: (_o, n) => n, default: () => undefined }),
+  llm_provider: Annotation<BuildState['llm_provider']>({
+    reducer: (_o, n) => n,
+    default: () => 'openai',
+  }),
+  llm_model: Annotation<string>({ reducer: (_o, n) => n, default: () => '' }),
+  llm_api_key: Annotation<string | undefined>({ reducer: (_o, n) => n, default: () => undefined }),
+  search_provider: Annotation<BuildState['search_provider']>({
+    reducer: (_o, n) => n,
+    default: () => undefined,
+  }),
+  search_api_key: Annotation<string | undefined>({
+    reducer: (_o, n) => n,
+    default: () => undefined,
+  }),
+  status: Annotation<BuildState['status']>({
+    reducer: (_o, n) => n,
+    default: () => 'classifying',
+  }),
+  rules_dsl: Annotation<BuildState['rules_dsl']>({
+    reducer: (_o, n) => n,
+    default: () => undefined,
+  }),
+  conflicts: Annotation<BuildState['conflicts']>({
+    reducer: (_o, n) => n,
+    default: () => [],
+  }),
+  asset_manifest: Annotation<BuildState['asset_manifest']>({
+    reducer: (_o, n) => n,
+    default: () => undefined,
+  }),
+  user_decision: Annotation<BuildState['user_decision']>({
+    reducer: (_o, n) => n,
+    default: () => undefined,
+  }),
+  // Append with dedupe — multi-retry runs shouldn't spam identical strings.
+  errors: Annotation<string[]>({
+    reducer: (old: string[], next: string[]) => {
+      const merged = [...(old ?? []), ...(next ?? [])];
+      return Array.from(new Set(merged));
+    },
+    default: () => [],
+  }),
+});
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { classifyAgent } from './agents/classify.js';
 import { rulesAgent } from './agents/rules.js';
@@ -22,96 +85,48 @@ import { SqliteSaver } from './checkpoint.js';
  * @param llm - Language model to use for agents
  * @param threadId - Thread ID for checkpoint persistence (optional; if not provided, no state persistence)
  */
-export function createGraph(llm: BaseChatModel, threadId?: string): ReturnType<StateGraph<BuildState>['compile']> {
-  const workflow = new StateGraph<BuildState>({
-    channels: {
-      bundle_id: { value: '' },
-      prompt: { value: '' },
-      mode: { value: '' },
-      custom_rules: { value: undefined },
-      llm_provider: { value: '' },
-      llm_model: { value: '' },
-      llm_api_key: { value: undefined },
-      search_provider: { value: undefined },
-      search_api_key: { value: undefined },
-      status: {
-        value: 'classifying',
-        reducer: (old: any, next: any) => next,
-      },
-      rules_dsl: { value: undefined },
-      conflicts: {
-        value: [],
-        reducer: (old: any, next: any) => next,
-      },
-      asset_manifest: { value: undefined },
-      user_decision: { value: undefined },
-      errors: {
-        value: [],
-        reducer: (old: string[], next: string[]) => [...(old || []), ...next],
-      },
-    },
-  } as any);
+export function createGraph(llm: BaseChatModel, _threadId?: string) {
+  const workflow = new StateGraph(BuildStateAnnotation)
+    .addNode('classify', async (state) => {
+      logger.debug({ bundle_id: state.bundle_id }, 'Entering classify node');
+      return classifyAgent(state as BuildState, llm);
+    })
+    .addNode('rules_agent', async (state) => {
+      logger.debug({ bundle_id: state.bundle_id }, 'Entering rules_agent node');
+      return rulesAgent(state as BuildState, llm);
+    })
+    .addNode('conflict_review', async (state) => {
+      logger.debug({ bundle_id: state.bundle_id }, 'Entering conflict_review node');
+      return conflictReview(state as BuildState);
+    })
+    .addNode('asset_agent', async (state) => {
+      logger.debug({ bundle_id: state.bundle_id }, 'Entering asset_agent node');
+      return assetAgent(state as BuildState, llm);
+    })
+    .addNode('frontend_agent', async (state) => {
+      logger.debug({ bundle_id: state.bundle_id }, 'Entering frontend_agent node');
+      return frontendAgent(state as BuildState, llm);
+    })
+    .addNode('assembler', async (state) => {
+      logger.debug({ bundle_id: state.bundle_id }, 'Entering assembler node');
+      return assembleBundle(state as BuildState);
+    })
+    .addEdge(START, 'classify')
+    .addEdge('classify', 'rules_agent')
+    .addEdge('rules_agent', 'conflict_review')
+    .addConditionalEdges(
+      'conflict_review',
+      (state) => (state.status === 'awaiting_review' ? 'interrupt' : 'proceed'),
+      { interrupt: END, proceed: 'asset_agent' },
+    )
+    .addEdge('asset_agent', 'frontend_agent')
+    .addEdge('frontend_agent', 'assembler')
+    .addEdge('assembler', END);
 
-  // Add nodes
-  workflow.addNode('classify', async (state: BuildState) => {
-    logger.debug({ bundle_id: state.bundle_id }, 'Entering classify node');
-    return classifyAgent(state, llm);
-  });
-
-  workflow.addNode('rules_agent', async (state: BuildState) => {
-    logger.debug({ bundle_id: state.bundle_id }, 'Entering rules_agent node');
-    return rulesAgent(state, llm);
-  });
-
-  workflow.addNode('conflict_review', async (state: BuildState) => {
-    logger.debug({ bundle_id: state.bundle_id }, 'Entering conflict_review node');
-    return conflictReview(state);
-  });
-
-  workflow.addNode('asset_agent', async (state: BuildState) => {
-    logger.debug({ bundle_id: state.bundle_id }, 'Entering asset_agent node');
-    return assetAgent(state, llm);
-  });
-
-  workflow.addNode('frontend_agent', async (state: BuildState) => {
-    logger.debug({ bundle_id: state.bundle_id }, 'Entering frontend_agent node');
-    return frontendAgent(state, llm);
-  });
-
-  workflow.addNode('assembler', async (state: BuildState) => {
-    logger.debug({ bundle_id: state.bundle_id }, 'Entering assembler node');
-    return assembleBundle(state);
-  });
-
-  // Add edges
-  (workflow as any).addEdge(START, 'classify');
-  (workflow as any).addEdge('classify', 'rules_agent');
-  (workflow as any).addEdge('rules_agent', 'conflict_review');
-
-  // CLOSED: gap 2 - conditional edge for core_mechanic conflicts
-  // If conflict_review halts with status='awaiting_review', graph stops; otherwise continue
-  (workflow as any).addConditionalEdges(
-    'conflict_review',
-    (state: BuildState) => {
-      if (state.status === 'awaiting_review') {
-        return 'interrupt';
-      }
-      return 'proceed';
-    },
-    {
-      interrupt: END,
-      proceed: 'asset_agent',
-    },
-  );
-
-  (workflow as any).addEdge('asset_agent', 'frontend_agent');
-  (workflow as any).addEdge('frontend_agent', 'assembler');
-  (workflow as any).addEdge('assembler', END);
-
-  // Initialize graph without explicit checkpointer (LangGraph 0.0.21 limitation)
-  // Gap 1 checkpoint support is available via SqliteSaver for manual state persistence
-  const graph = workflow.compile();
-  return graph;
+  // NOTE: process-restart-resume via an LLM-managed checkpointer requires a
+  // BaseCheckpointSaver-compatible class. Our local libsql-backed SqliteSaver
+  // shim persists state out-of-band; full graph resume is tracked in commit 2.
+  return workflow.compile();
 }
 
 /**

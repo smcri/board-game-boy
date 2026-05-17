@@ -1,4 +1,22 @@
 {
-  "entries": [],
-  "palette": []
+  "palette": [
+    "#F3E5F5",
+    "#9C27B0",
+    "#6A1B9A",
+    "#FFB300"
+  ],
+  "entries": [
+    {
+      "id": "board",
+      "file": "board.svg",
+      "role": "board",
+      "svg_viewbox": "0 0 400 400"
+    },
+    {
+      "id": "player1",
+      "file": "player1.svg",
+      "role": "misc",
+      "svg_viewbox": "0 0 100 100"
+    }
+  ]
 }
