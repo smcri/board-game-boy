@@ -52,7 +52,7 @@ importers:
         version: 0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76)
       '@langchain/community':
         specifier: ^0.3.11
-        version: 0.3.59(@browserbasehq/sdk@2.11.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.60.0)(deepmerge@4.3.1)(dotenv@16.4.5)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.7.12)(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(@libsql/client@0.14.0)(@mozilla/readability@0.4.4)(@opentelemetry/api@1.9.0)(axios@1.15.2(debug@4.3.4))(fast-xml-parser@4.5.6)(ibm-cloud-sdk-core@5.4.19)(ignore@7.0.5)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(pdf-parse@1.1.4)(playwright@1.60.0)(weaviate-client@3.13.0)(ws@8.20.1)
+        version: 0.3.59(@browserbasehq/sdk@2.11.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.60.0)(deepmerge@4.3.1)(dotenv@16.4.5)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.7.12)(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(@libsql/client@0.14.0)(@mozilla/readability@0.4.4)(@opentelemetry/api@1.9.0)(axios@1.15.2)(fast-xml-parser@4.5.6)(ibm-cloud-sdk-core@5.4.19)(ignore@7.0.5)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(pdf-parse@1.1.4)(playwright@1.60.0)(weaviate-client@3.13.0)(ws@8.20.1)
       '@langchain/core':
         specifier: ^0.3.18
         version: 0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))
@@ -76,7 +76,7 @@ importers:
         version: 24.1.3
       langchain:
         specifier: ^0.1.30
-        version: 0.1.37(@browserbasehq/sdk@2.11.0)(@mozilla/readability@0.4.4)(axios@1.15.2(debug@4.3.4))(fast-xml-parser@4.5.6)(ignore@7.0.5)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(pdf-parse@1.1.4)(playwright@1.60.0)(ws@8.20.1)
+        version: 0.1.37(@browserbasehq/sdk@2.11.0)(@mozilla/readability@0.4.4)(axios@1.15.2)(fast-xml-parser@4.5.6)(ignore@7.0.5)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(pdf-parse@1.1.4)(playwright@1.60.0)(ws@8.20.1)
       nanoid:
         specifier: ^5.0.4
         version: 5.1.11
@@ -98,6 +98,9 @@ importers:
       zod:
         specifier: ^3.22.4
         version: 3.25.76
+      zod-to-json-schema:
+        specifier: ^3.23.0
+        version: 3.25.2(zod@3.25.76)
     devDependencies:
       '@types/jsdom':
         specifier: ^21.1.6
@@ -5577,7 +5580,7 @@ snapshots:
       - encoding
       - openai
 
-  '@langchain/community@0.3.59(@browserbasehq/sdk@2.11.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.60.0)(deepmerge@4.3.1)(dotenv@16.4.5)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.7.12)(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(@libsql/client@0.14.0)(@mozilla/readability@0.4.4)(@opentelemetry/api@1.9.0)(axios@1.15.2(debug@4.3.4))(fast-xml-parser@4.5.6)(ibm-cloud-sdk-core@5.4.19)(ignore@7.0.5)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(pdf-parse@1.1.4)(playwright@1.60.0)(weaviate-client@3.13.0)(ws@8.20.1)':
+  '@langchain/community@0.3.59(@browserbasehq/sdk@2.11.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.60.0)(deepmerge@4.3.1)(dotenv@16.4.5)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.7.12)(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(@libsql/client@0.14.0)(@mozilla/readability@0.4.4)(@opentelemetry/api@1.9.0)(axios@1.15.2)(fast-xml-parser@4.5.6)(ibm-cloud-sdk-core@5.4.19)(ignore@7.0.5)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(pdf-parse@1.1.4)(playwright@1.60.0)(weaviate-client@3.13.0)(ws@8.20.1)':
     dependencies:
       '@browserbasehq/stagehand': 1.14.0(@playwright/test@1.60.0)(deepmerge@4.3.1)(dotenv@16.4.5)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(zod@3.25.76)
       '@ibm-cloud/watsonx-ai': 1.7.12
@@ -5588,7 +5591,7 @@ snapshots:
       flat: 5.0.2
       ibm-cloud-sdk-core: 5.4.19
       js-yaml: 4.1.1
-      langchain: 0.3.37(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(@opentelemetry/api@1.9.0)(axios@1.15.2(debug@4.3.4))(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(ws@8.20.1)
+      langchain: 0.3.37(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(@opentelemetry/api@1.9.0)(axios@1.15.2)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(ws@8.20.1)
       langsmith: 0.3.87(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))
       math-expression-evaluator: 2.0.7
       openai: 4.104.0(ws@8.20.1)(zod@3.25.76)
@@ -7665,7 +7668,7 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
-  langchain@0.1.37(@browserbasehq/sdk@2.11.0)(@mozilla/readability@0.4.4)(axios@1.15.2(debug@4.3.4))(fast-xml-parser@4.5.6)(ignore@7.0.5)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(pdf-parse@1.1.4)(playwright@1.60.0)(ws@8.20.1):
+  langchain@0.1.37(@browserbasehq/sdk@2.11.0)(@mozilla/readability@0.4.4)(axios@1.15.2)(fast-xml-parser@4.5.6)(ignore@7.0.5)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(pdf-parse@1.1.4)(playwright@1.60.0)(ws@8.20.1):
     dependencies:
       '@anthropic-ai/sdk': 0.9.1
       '@langchain/community': 0.0.50(@mozilla/readability@0.4.4)(jsdom@24.1.3)(jsonwebtoken@9.0.3)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(ws@8.20.1)
@@ -7764,7 +7767,7 @@ snapshots:
       - vectordb
       - voy-search
 
-  langchain@0.3.37(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(@opentelemetry/api@1.9.0)(axios@1.15.2(debug@4.3.4))(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(ws@8.20.1):
+  langchain@0.3.37(@langchain/anthropic@0.3.34(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(zod@3.25.76))(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(@opentelemetry/api@1.9.0)(axios@1.15.2)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))(ws@8.20.1):
     dependencies:
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76))
       '@langchain/openai': 0.3.17(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(ws@8.20.1)(zod@3.25.76)))(ws@8.20.1)

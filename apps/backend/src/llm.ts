@@ -101,6 +101,17 @@ export function withStructuredOutput(
  * provider's tool-calling layer throws or returns malformed JSON) falls back
  * to a plain-text JSON-instruction prompt with manual parsing.
  */
+function describeSchema(schema: unknown): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const { zodToJsonSchema } = require('zod-to-json-schema');
+    const json = zodToJsonSchema(schema as any, { name: 'Target' });
+    return JSON.stringify(json).slice(0, 4000);
+  } catch {
+    return '';
+  }
+}
+
 function wrapWithJsonFallback(native: any, llm: BaseChatModel, schema: unknown) {
   const safeParse = (raw: unknown) => {
     if (schema && typeof (schema as { safeParse?: unknown }).safeParse === 'function') {
@@ -129,9 +140,11 @@ function wrapWithJsonFallback(native: any, llm: BaseChatModel, schema: unknown) 
       {
         const err = nativeErr;
         // Native path failed — try the JSON-instruction fallback.
+        const schemaDescription = describeSchema(schema);
         const fallbackHint =
-          'Respond with ONLY a single valid JSON object that matches the requested schema. ' +
+          'Respond with ONLY a single valid JSON object that matches the schema below. ' +
           'No prose, no markdown fences. If unsure, return the closest valid object you can.' +
+          (schemaDescription ? `\n\nTarget JSON-Schema:\n${schemaDescription}` : '') +
           (nativeRaw
             ? `\n\nYour previous attempt produced this (which failed schema validation):\n${JSON.stringify(nativeRaw).slice(0, 1500)}`
             : '');
