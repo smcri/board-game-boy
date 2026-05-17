@@ -62,6 +62,19 @@ export async function llmJsonRetry<T extends z.ZodTypeAny>(
   };
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+  /** Hard timeout for a single LLM invoke — 45 seconds. */
+  const LLM_TIMEOUT_MS = 45_000;
+
+  const invokeWithTimeout = async (
+    structuredLlm: ReturnType<typeof withStructuredOutput>,
+    messages: [SystemMessage, HumanMessage],
+  ) => {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`)), LLM_TIMEOUT_MS),
+    );
+    return Promise.race([structuredLlm.invoke(messages), timeoutPromise]);
+  };
+
   const tryOnce = async (extraSystem: string, extraHuman: string): Promise<void> => {
     attempts += 1;
     const structuredLlm = withStructuredOutput(llm, schema, { name: schemaName });
@@ -74,7 +87,7 @@ export async function llmJsonRetry<T extends z.ZodTypeAny>(
     let lastTransientErr: unknown = null;
     for (let i = 0; i <= backoffs.length; i++) {
       try {
-        const result = await structuredLlm.invoke([
+        const result = await invokeWithTimeout(structuredLlm, [
           new SystemMessage(sys),
           new HumanMessage(human),
         ]);
