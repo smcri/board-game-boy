@@ -25,6 +25,7 @@ RUN pnpm install --frozen-lockfile --filter @bgb/shared --filter @bgb/backend --
 # ── Build shared + backend ────────────────────────────────────────────────────
 FROM deps AS build
 WORKDIR /app
+COPY tsconfig.base.json ./
 COPY packages/shared/ packages/shared/
 COPY apps/backend/ apps/backend/
 COPY apps/scaffold/ apps/scaffold/
