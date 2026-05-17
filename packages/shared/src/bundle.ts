@@ -13,22 +13,9 @@ export const BundleMetadata = z.object({
   mode: z.string(),
 });
 
-export const Bundle = z.object({
-  bundle_id: z.string().min(1),
-  version: z.literal('0.1.0'),
-  dsl_version: z.literal('1.0'),
-  rules_dsl: RulesDsl,
-  asset_manifest: AssetManifest,
-  conflicts_resolved: z.array(Conflict).default([]),
-  conflicts_unresolved_non_blocking: z.array(Conflict).default([]),
-  // Build-time warnings (non-fatal errors collected during the run). Empty
-  // on a clean build. Surfaced in the runtime UI so players see what didn't
-  // work even when the build itself completed.
-  build_warnings: z.array(z.string()).default([]).optional(),
-  metadata: BundleMetadata,
-});
-export type Bundle = z.infer<typeof Bundle>;
-
+// Board topology expanded at build time by the assembler.
+// The scaffold reads this to seed the ECS store — no runtime derivation needed.
+// Optional for backwards compatibility with bundles built before this field existed.
 export const BoardConfig = z.object({
   kind: z.enum(['graph', 'grid_hex', 'grid_square', 'track', 'region_map']),
   nodes: z.array(
@@ -42,3 +29,21 @@ export const BoardConfig = z.object({
   render_hints: z.record(z.string(), z.unknown()).optional(),
 });
 export type BoardConfig = z.infer<typeof BoardConfig>;
+
+export const Bundle = z.object({
+  bundle_id: z.string().min(1),
+  version: z.literal('0.1.0'),
+  dsl_version: z.literal('1.0'),
+  rules_dsl: RulesDsl,
+  asset_manifest: AssetManifest,
+  conflicts_resolved: z.array(Conflict).default([]),
+  conflicts_unresolved_non_blocking: z.array(Conflict).default([]),
+  // Build-time warnings (non-fatal errors collected during the run). Empty
+  // on a clean build. Surfaced in the runtime UI so players see what didn't
+  // work even when the build itself completed.
+  build_warnings: z.array(z.string()).default([]).optional(),
+  // board_config is populated by the assembler from BoardNode topology (Option C design).
+  board_config: BoardConfig.optional(),
+  metadata: BundleMetadata,
+});
+export type Bundle = z.infer<typeof Bundle>;

@@ -38,33 +38,23 @@ export function mount(
     return;
   }
 
-  // Seed the ECS store with board node entities from boardConfig.
-  // The renderers read BoardNode entities from the store, not from boardConfig directly.
-  // Only seed nodes that aren't already in the store (LLM may have generated them explicitly).
+  // Seed the ECS store with board node entities from boardConfig.nodes.
+  // boardConfig comes from bundle.board_config (expanded by assembler at build time — Option C).
+  // The square/track/hex renderers read store.getEntities('BoardNode') to draw squares.
+  // Only seed nodes not already in the store (LLM-generated node entities take precedence).
   const store = engine.getStore();
   const validConfig = boardResult.data;
-  const existingBoardNodes = store.getEntities('BoardNode');
+  const existingBoardNodes = new Set(store.getEntities('BoardNode'));
 
-  if (validConfig.kind === 'grid_square') {
-    for (const node of (validConfig as { kind: 'grid_square'; nodes: Array<{ id: string; coords: { file: number; rank: number } }> }).nodes) {
-      if (!existingBoardNodes.includes(node.id)) {
-        store.addComponent(node.id, 'BoardNode', { kind: 'grid_square', coords: node.coords });
-        store.addComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
-      }
-    }
-  } else if (validConfig.kind === 'track') {
-    for (const node of (validConfig as { kind: 'track'; nodes: Array<{ id: string; index: number }> }).nodes) {
-      if (!existingBoardNodes.includes(node.id)) {
-        store.addComponent(node.id, 'BoardNode', { kind: 'track', index: node.index });
-        store.addComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
-      }
-    }
-  } else if (validConfig.kind === 'grid_hex') {
-    for (const node of (validConfig as { kind: 'grid_hex'; nodes: Array<{ id: string; q: number; r: number }> }).nodes) {
-      if (!existingBoardNodes.includes(node.id)) {
-        store.addComponent(node.id, 'BoardNode', { kind: 'grid_hex', q: node.q, r: node.r });
-        store.addComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
-      }
+  for (const node of validConfig.nodes) {
+    if (!existingBoardNodes.has(node.id)) {
+      // coords is a generic Record<string, number|string> from BoardConfig.nodes.
+      // The renderer reads coords.file/coords.rank (grid_square) or coords.index (track).
+      store.addComponent(node.id, 'BoardNode', {
+        kind: validConfig.kind,
+        coords: node.coords ?? {},
+      });
+      store.addComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
     }
   }
 

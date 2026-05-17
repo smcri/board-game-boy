@@ -5,7 +5,7 @@
  * CLOSED: gap 4 - overwrite scaffold/game/* and run build
  * CLOSED: gap 5 - computeScaffoldHash walks scaffold sources
  */
-import { BuildState, Bundle } from '@bgb/shared';
+import { BuildState, Bundle, BoardConfig } from '@bgb/shared';
 import { emitSseEvent } from './sse.js';
 import { writeFileSync, readFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
@@ -43,6 +43,16 @@ export async function assembleBundle(state: BuildState): Promise<Partial<BuildSt
     const bundleDir = join(config.BUNDLES_DIR, state.bundle_id);
     mkdirSync(bundleDir, { recursive: true });
 
+    // Expand board topology into explicit nodes — stored in bundle.json so the
+    // scaffold never needs to re-derive it at runtime (Option C design).
+    const board_config = expandBoardConfig(state.rules_dsl);
+    if (board_config) {
+      logger.debug(
+        { bundle_id: state.bundle_id, kind: board_config.kind, nodes: board_config.nodes.length },
+        'Expanded board topology',
+      );
+    }
+
     // Create bundle.json (without conflicts_unresolved to keep playable shape clean)
     const bundle: Bundle = {
       bundle_id: state.bundle_id,
@@ -53,6 +63,7 @@ export async function assembleBundle(state: BuildState): Promise<Partial<BuildSt
       build_warnings: Array.from(new Set(state.errors ?? [])),
       conflicts_resolved: (state.conflicts || []).filter((c) => c.resolution),
       conflicts_unresolved_non_blocking: (state.conflicts || []).filter((c) => !c.resolution && c.severity !== 'core_mechanic'),
+      board_config: board_config ?? undefined,
       metadata: {
         game_name: state.rules_dsl.metadata.game_name,
         built_at: new Date().toISOString(),
@@ -220,6 +231,67 @@ export async function assembleBundle(state: BuildState): Promise<Partial<BuildSt
  * Compute a hash of the scaffold source code.
  * CLOSED: gap 5 - walks scaffold/src, vite.config.ts, and index.html; skips game/*
  */
+/**
+ * Expand board topology from the DSL into a BoardConfig with explicit nodes.
+ * Reads the entity with a BoardNode component; uses cols/rows/spaces/radius hints
+ * or falls back to sensible defaults. Returns undefined if no BoardNode found.
+ */
+function expandBoardConfig(rules_dsl: BuildState['rules_dsl']): BoardConfig | undefined {
+  if (!rules_dsl) return undefined;
+
+  // Find the entity that describes the board topology.
+  const boardEntity = rules_dsl.entities.find(
+    (e) => e.components['BoardNode'],
+  );
+  if (!boardEntity) return undefined;
+
+  const bn = boardEntity.components['BoardNode'] as Record<string, unknown>;
+  const kind = String(bn.kind ?? 'grid_square');
+
+  if (kind === 'grid_square') {
+    const cols = Number(bn.cols ?? 8);
+    const rows = Number(bn.rows ?? 8);
+    const nodes = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        nodes.push({ id: `sq_${c}_${r}`, coords: { file: c, rank: r } });
+      }
+    }
+    return { kind: 'grid_square', nodes };
+  }
+
+  if (kind === 'track') {
+    const spaces = Number(bn.spaces ?? 100);
+    const nodes = Array.from({ length: spaces + 1 }, (_, i) => ({
+      id: `square_${i}`,
+      coords: { index: i },
+    }));
+    return { kind: 'track', nodes };
+  }
+
+  if (kind === 'grid_hex') {
+    const radius = Number(bn.radius ?? 5);
+    const nodes = [];
+    for (let q = -radius; q <= radius; q++) {
+      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+        nodes.push({ id: `hex_${q}_${r}`, coords: { q, r } });
+      }
+    }
+    return { kind: 'grid_hex', nodes };
+  }
+
+  if (kind === 'graph') {
+    // Graph topology — nodes are defined by entities with BoardNode + Adjacency.
+    // Collect all such entities.
+    const nodes = rules_dsl.entities
+      .filter((e) => e.components['BoardNode'])
+      .map((e) => ({ id: e.id }));
+    return { kind: 'graph', nodes };
+  }
+
+  return undefined;
+}
+
 function computeScaffoldHash(): string {
   try {
     const repoRoot = join(process.cwd(), '../..');

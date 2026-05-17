@@ -47,6 +47,15 @@ export const C_Adjacency = z.object({
 export const BoardNodeKind = z.enum(['graph', 'grid_hex', 'grid_square', 'track', 'region']);
 export const C_BoardNode = z.object({
   kind: BoardNodeKind,
+  // Optional topology hints — used by the assembler to generate board_config.nodes.
+  // For grid_square: cols × rows grid (default 8×8).
+  cols: z.number().int().positive().optional(),
+  rows: z.number().int().positive().optional(),
+  // For track: number of spaces (default 100).
+  spaces: z.number().int().positive().optional(),
+  // For grid_hex: hex radius (default 5).
+  radius: z.number().int().positive().optional(),
+  // Generic coords bag (used by explicit node entities if LLM generates them).
   coords: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
 });
 

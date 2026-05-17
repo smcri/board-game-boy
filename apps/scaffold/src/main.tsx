@@ -7,53 +7,14 @@ import { Bundle, BoardConfig } from '@bgb/shared';
 import { mount } from './mount.js';
 
 /**
- * Derive a BoardConfig from the bundle's DSL entities.
- * Looks for an entity with a BoardNode component and auto-generates grid nodes.
+ * Get board config from the bundle (Option C design).
+ * The assembler expands board topology at build time; we just read it.
+ * Falls back to a minimal empty board if the field is missing (old bundles).
  */
-function deriveBoardConfig(bundle: Bundle): BoardConfig {
-  const entities = bundle.rules_dsl.entities;
-
-  // Find the board entity
-  const boardEntity = entities.find((e) => e.components['BoardNode']);
-  const boardNode = boardEntity?.components['BoardNode'] as Record<string, unknown> | undefined;
-  const kind = (boardNode?.kind as string) ?? 'grid_square';
-
-  if (kind === 'grid_square') {
-    // Default 8×8 grid (Chess, Checkers, etc.)
-    const cols = (boardNode?.cols as number) ?? 8;
-    const rows = (boardNode?.rows as number) ?? 8;
-    const nodes = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        nodes.push({ id: `sq_${c}_${r}`, coords: { file: c, rank: r } });
-      }
-    }
-    return { kind: 'grid_square', nodes };
-  }
-
-  if (kind === 'track') {
-    // Default 100-space track (Snakes & Ladders, etc.)
-    const spaces = (boardNode?.spaces as number) ?? 100;
-    const nodes = Array.from({ length: spaces }, (_, i) => ({
-      id: `space_${i}`,
-      index: i,
-    }));
-    return { kind: 'track', nodes };
-  }
-
-  if (kind === 'grid_hex') {
-    // Default 5-radius hex grid
-    const radius = (boardNode?.radius as number) ?? 5;
-    const nodes = [];
-    for (let q = -radius; q <= radius; q++) {
-      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-        nodes.push({ id: `hex_${q}_${r}`, q, r });
-      }
-    }
-    return { kind: 'grid_hex', nodes };
-  }
-
-  // Fallback: empty grid_square
+function getBoardConfig(bundle: Bundle): BoardConfig {
+  if (bundle.board_config) return bundle.board_config;
+  // Backwards compatibility: old bundles without board_config get an empty grid.
+  console.warn('[scaffold] bundle.board_config missing — using empty fallback. Rebuild the bundle.');
   return { kind: 'grid_square', nodes: [] };
 }
 
@@ -74,6 +35,8 @@ async function boot(
     return;
   }
 
+  // Option C: always read board_config from bundle (expanded by assembler at build time).
+  // boardConfigData override is kept for testing only.
   let boardConfig: BoardConfig;
   if (boardConfigData) {
     const boardResult = BoardConfig.safeParse(boardConfigData);
@@ -84,8 +47,7 @@ async function boot(
     }
     boardConfig = boardResult.data;
   } else {
-    // Derive board config from the bundle's DSL entities.
-    boardConfig = deriveBoardConfig(bundleResult.data);
+    boardConfig = getBoardConfig(bundleResult.data);
   }
 
   mount(rootEl, bundleResult.data, boardConfig);
