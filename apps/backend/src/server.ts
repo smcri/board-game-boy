@@ -8,7 +8,7 @@
  * GET /bundles/:id/assets/* → stream assets
  * GET /bundles/:id/play → tiny index.html
  */
-import Fastify from 'fastify';
+import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import { z } from 'zod';
 import { BuildState, SseEvent, LlmProvider, SearchProvider, BuildMode } from '@bgb/shared';
@@ -358,7 +358,8 @@ export async function buildServer() {
 
   // ── Bundle Download ──────────────────────────────────────────────────────
 
-  fastify.get<{ Params: { id: string } }>('/bundles/:id', async (request, reply) => {
+  // Both /bundles/:id and /bundles/:id/bundle.json serve bundle.json
+  const serveBundleJson = async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const { id } = request.params;
     const bundlePath = `${config.BUNDLES_DIR}/${id}/bundle.json`;
 
@@ -368,7 +369,9 @@ export async function buildServer() {
 
     reply.type('application/json');
     return createReadStream(bundlePath);
-  });
+  };
+  fastify.get<{ Params: { id: string } }>('/bundles/:id', serveBundleJson);
+  fastify.get<{ Params: { id: string } }>('/bundles/:id/bundle.json', serveBundleJson);
 
   fastify.get<{ Params: { id: string } }>('/bundles/:id/game.js', async (request, reply) => {
     const { id } = request.params;

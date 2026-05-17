@@ -36,20 +36,26 @@ export function BundleSummary({ doneEvent }: BundleSummaryProps) {
         </div>
 
         <div className="space-y-2">
-          <Button
-            onClick={() => window.open(playUrl, '_blank')}
-            className="w-full"
-            variant="primary"
+          <a
+            href={playUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full"
           >
-            Open game
-          </Button>
-          <Button
-            onClick={() => window.open(bundleJsonUrl, '_blank')}
-            className="w-full"
-            variant="secondary"
+            <Button className="w-full" variant="primary">
+              Open game ↗
+            </Button>
+          </a>
+          <a
+            href={bundleJsonUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full"
           >
-            View bundle.json
-          </Button>
+            <Button className="w-full" variant="secondary">
+              View bundle.json ↗
+            </Button>
+          </a>
           <Button
             onClick={() => {
               const link = document.createElement('a');
