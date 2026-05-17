@@ -34,21 +34,29 @@ export async function rulesAgent(state: BuildState, llm: BaseChatModel): Promise
     const queries = planQueries(state.prompt);
     logger.debug({ queries }, 'Planned queries');
 
-    // Step 2: Search
+    // Step 2: Search — run all queries in parallel with isolation per query.
+    // One failing query (rate-limit, bad input) should not block the others.
     const allHits: Array<{ url: string; title?: string; snippet?: string }> = [];
     if (state.search_provider && state.search_api_key) {
-      for (const query of queries) {
-        try {
-          const hits = await runSearch(state.search_provider, state.search_api_key, query);
+      const searchProvider = state.search_provider;
+      const searchKey = state.search_api_key;
+      const results = await Promise.allSettled(
+        queries.map(async (query) => {
+          const hits = await runSearch(searchProvider, searchKey, query);
           emitSseEvent(state.bundle_id, {
             type: 'search',
-            provider: state.search_provider,
+            provider: searchProvider,
             query,
             hits: hits.length,
           });
-          allHits.push(...hits);
-        } catch (err) {
-          logger.warn({ query, error: String(err) }, 'Search query failed');
+          return hits;
+        }),
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          allHits.push(...r.value);
+        } else {
+          logger.warn({ error: String(r.reason) }, 'Search query failed');
         }
       }
     } else {
