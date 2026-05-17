@@ -31,10 +31,13 @@ jobs:
 
       - run: pnpm install
 
+      - name: Build shared package
+        run: pnpm --filter @bgb/shared build
+
       - name: Build UI
         run: pnpm --filter @bgb/ui build
         env:
-          VITE_BACKEND_URL: https://huggingface.co/spaces/YOUR_HF_SPACE
+          VITE_BACKEND_URL: ${{ vars.VITE_BACKEND_URL }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
       - uses: actions/upload-pages-artifact@v3
