@@ -239,6 +239,13 @@ ${verbList.join(', ')}
 
 ## CONCRETE EXAMPLE (Tic-Tac-Toe — copy this shape exactly)
 
+NOTE: The values below (e.g. \`0\`, \`"X"\`) are literal example values, NOT template
+placeholders. Do not emit strings like \`"{row}"\` or \`"{current_player}"\` —
+emit concrete numbers and string literals appropriate for the game you are
+modelling. For your game, paths may include integer cell indices or
+named player ids, but never wrapped-in-braces template variables.
+
+
 {
   "dsl_version": "1.0",
   "metadata": { "game_name": "Tic-Tac-Toe", "summary": "Two players place X and O on a 3x3 grid; first to three in a row wins.", "min_players": 2, "max_players": 2 },
@@ -256,7 +263,7 @@ ${verbList.join(', ')}
         { "kind": "phase_is", "phase": "main" }
       ],
       "effect": [
-        { "op": "set", "path": "board.cells.{row}.{col}", "value": "{current_player_mark}" }
+        { "op": "set", "path": "board.cells.0.0", "value": "X" }
       ]
     }
   ],
