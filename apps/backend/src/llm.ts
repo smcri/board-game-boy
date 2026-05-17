@@ -74,11 +74,83 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
 
 /**
  * Helper to create an LLM with structured output support.
- * Wraps the model's withStructuredOutput method.
+ *
+ * First tries the model's native withStructuredOutput (function-calling /
+ * JSON-mode), then falls back to a manual JSON-prompt-and-parse path for
+ * providers that advertise the method but don't actually implement it
+ * end-to-end (we hit this with xAI Grok via ChatOpenAI baseURL).
+ *
+ * Returns an object with `.invoke(messages)` that resolves to either the
+ * parsed Zod-validated object or a ZodError — matching what the rules-agent
+ * already expects.
  */
-export function withStructuredOutput(llm: BaseChatModel, schema: unknown, opts: { name: string }) {
+export function withStructuredOutput(
+  llm: BaseChatModel,
+  schema: unknown,
+  opts: { name: string },
+) {
   if ('withStructuredOutput' in llm && typeof llm.withStructuredOutput === 'function') {
-    return (llm as any).withStructuredOutput(schema, opts);
+    const native = (llm as any).withStructuredOutput(schema, opts);
+    return wrapWithJsonFallback(native, llm, schema);
   }
   throw new Error(`LLM ${llm.constructor.name} does not support withStructuredOutput`);
+}
+
+/**
+ * Wrap a native structured-output runnable so a runtime failure (e.g. the
+ * provider's tool-calling layer throws or returns malformed JSON) falls back
+ * to a plain-text JSON-instruction prompt with manual parsing.
+ */
+function wrapWithJsonFallback(native: any, llm: BaseChatModel, schema: unknown) {
+  return {
+    async invoke(messages: any) {
+      try {
+        return await native.invoke(messages);
+      } catch (err) {
+        // Native path failed — try the JSON-instruction fallback.
+        const fallbackMessages = [
+          ...messages,
+          {
+            role: 'user',
+            content:
+              'Respond with ONLY a single valid JSON object that matches the requested schema. ' +
+              'No prose, no markdown fences. If unsure, return the closest valid object you can.',
+          },
+        ];
+        const result = await llm.invoke(fallbackMessages as any);
+        const text = String(result.content ?? '');
+        const jsonText = extractJsonBlock(text);
+        try {
+          const parsed = JSON.parse(jsonText);
+          if (schema && typeof (schema as { safeParse?: unknown }).safeParse === 'function') {
+            const validated = (schema as { safeParse: (v: unknown) => { success: boolean; data?: unknown; error?: unknown } }).safeParse(parsed);
+            if (validated.success) return validated.data;
+            return validated.error;
+          }
+          return parsed;
+        } catch (parseErr) {
+          throw new Error(
+            `Both native and JSON-fallback structured output failed. ` +
+              `Native error: ${String(err)}. Parse error: ${String(parseErr)}.`,
+          );
+        }
+      }
+    },
+  };
+}
+
+/**
+ * Extract the first JSON object from an LLM response. Handles bare JSON,
+ * fenced code blocks, and prose-then-JSON. Returns the raw string for
+ * JSON.parse — does not validate.
+ */
+function extractJsonBlock(text: string): string {
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch && fenceMatch[1] !== undefined) return fenceMatch[1].trim();
+  const braceStart = text.indexOf('{');
+  const braceEnd = text.lastIndexOf('}');
+  if (braceStart >= 0 && braceEnd > braceStart) {
+    return text.slice(braceStart, braceEnd + 1);
+  }
+  return text.trim();
 }
