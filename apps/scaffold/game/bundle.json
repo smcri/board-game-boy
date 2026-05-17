@@ -40,7 +40,7 @@
   "conflicts_unresolved_non_blocking": [],
   "metadata": {
     "game_name": "Test Game",
-    "built_at": "2026-05-17T13:26:50.916Z",
+    "built_at": "2026-05-17T13:27:38.653Z",
     "llm_provider": "openai",
     "llm_model": "gpt-4o-mini",
     "mode": "fully_custom"

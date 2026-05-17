@@ -173,14 +173,19 @@ function buildSystemPrompt(): string {
   const componentNames = Object.keys(COMPONENT_REGISTRY);
   const verbList = ['set', 'inc', 'move', 'choose', 'if', 'phase', 'atomic', 'random.roll', 'random.pick'];
 
-  return `You are an expert board game rule parser. Convert informal game descriptions into a strict RulesDsl JSON object.
+  return `You are an expert board game rule parser.
+
+## YOUR JOB
+The user will name a specific board game. You must produce a RulesDsl JSON object that describes
+the rules of THAT game. Do not describe Snakes & Ladders or any other example game — produce
+rules for the game the user actually requested.
 
 ## OUTPUT SCHEMA (every field is required unless marked optional)
 
 {
   "dsl_version": "1.0",                          // EXACTLY the string "1.0"
   "metadata": {                                  // object, required
-    "game_name": "string",                       // REQUIRED
+    "game_name": "string",                       // REQUIRED — name of the user's game
     "summary": "optional one-line description",  // OPTIONAL
     "min_players": 1,                            // REQUIRED positive int
     "max_players": 4                             // REQUIRED positive int
@@ -189,7 +194,7 @@ function buildSystemPrompt(): string {
     {
       "id": "unique_string_id",                  // REQUIRED string
       "components": {                            // OBJECT (NOT array) - keys are component names
-        "componentName": { /* component props */ }
+        "Identity": { "name": "My entity", "kind": "board" }  // Identity ALWAYS needs BOTH name + kind
       }
     }
   ],
@@ -197,12 +202,11 @@ function buildSystemPrompt(): string {
     {
       "id": "unique_action_id",                  // REQUIRED string
       "name": "Human-readable action name",
-      "actor": "player",                         // who performs it
-      "preconditions": [                         // array of OBJECTS (NOT strings)
-        { "kind": "phase_is", "phase": "main" }
+      "preconditions": [                         // array of Condition objects — use "op" not "kind"
+        { "op": "eq", "path": "some.path", "value": "expected_value" }
       ],
-      "effect": [                                // REQUIRED array of effect verbs
-        { "op": "set", "path": "players.{current}.score", "value": 1 }
+      "effect": [                                // REQUIRED array of Effect objects — use "verb" not "op"
+        { "verb": "set", "entity": "entity_id", "component": "Counter", "field": "value", "value": 1 }
       ]
     }
   ],
