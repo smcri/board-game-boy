@@ -34,13 +34,41 @@ export default function App() {
   > | null>(null);
   const [doneEvent, setDoneEvent] = useState<Extract<SseEvent, { type: 'done' }> | null>(null);
   const [closeStream, setCloseStream] = useState<(() => void) | null>(null);
+  const [isBuilding, setIsBuilding] = useState(false);
 
   const handleBuildStart = useCallback((id: string, ctx: { llm_provider: LlmProvider; search_provider?: SearchProvider }) => {
     setBundleId(id);
     setBuildCtx(ctx);
     setStreamEvents([]);
     setDoneEvent(null);
+    setInterruptEvent(null);
+    setIsBuilding(true);
   }, []);
+
+  const handlePause = useCallback(() => {
+    if (closeStream) {
+      closeStream();
+      setCloseStream(null);
+    }
+    setIsBuilding(false);
+    setStreamEvents((prev) => [
+      ...prev,
+      { type: 'error', message: 'Build paused by user.' } as SseEvent,
+    ]);
+  }, [closeStream]);
+
+  const handleReset = useCallback(() => {
+    if (closeStream) {
+      closeStream();
+      setCloseStream(null);
+    }
+    setBundleId(null);
+    setBuildCtx(null);
+    setStreamEvents([]);
+    setDoneEvent(null);
+    setInterruptEvent(null);
+    setIsBuilding(false);
+  }, [closeStream]);
 
   const handleStreamEvent = useCallback((event: SseEvent) => {
     // Add to stream history.
@@ -54,11 +82,17 @@ export default function App() {
     // Handle done.
     if (event.type === 'done') {
       setDoneEvent(event);
+      setIsBuilding(false);
       // Close stream on done.
       if (closeStream) {
         closeStream();
         setCloseStream(null);
       }
+    }
+
+    // Handle error — build ended.
+    if (event.type === 'error') {
+      setIsBuilding(false);
     }
 
     // Handle error.
@@ -102,8 +136,29 @@ export default function App() {
             <BuildForm onBuildStart={handleBuildStart} onStreamEvent={handleStreamEvent} />
           </div>
 
-          {/* Right: Stream Panel */}
-          <div className="lg:col-span-2">
+          {/* Right: Stream Panel + controls */}
+          <div className="lg:col-span-2 space-y-3">
+            {/* Pause / Reset buttons */}
+            {(isBuilding || streamEvents.length > 0) && (
+              <div className="flex gap-2">
+                {isBuilding && (
+                  <button
+                    onClick={handlePause}
+                    className="px-4 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium transition-colors"
+                  >
+                    ⏸ Pause build
+                  </button>
+                )}
+                {streamEvents.length > 0 && (
+                  <button
+                    onClick={handleReset}
+                    className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium transition-colors"
+                  >
+                    ✕ Reset
+                  </button>
+                )}
+              </div>
+            )}
             <StreamPanel events={streamEvents} />
           </div>
         </div>
