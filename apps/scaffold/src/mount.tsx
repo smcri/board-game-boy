@@ -43,4 +43,9 @@ export function mount(
   root.render(
     <App engine={engine} bundle={bundle} boardConfig={boardResult.data} />,
   );
+
+  // Signal to the play page that the game mounted successfully.
+  if (typeof window !== 'undefined' && typeof (window as Window & { __gameMounted?: () => void }).__gameMounted === 'function') {
+    (window as Window & { __gameMounted?: () => void }).__gameMounted!();
+  }
 }

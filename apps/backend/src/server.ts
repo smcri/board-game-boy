@@ -512,42 +512,54 @@ export async function buildServer() {
     window.BUNDLE_ID = '${id}';
     window.BUNDLE_URL = '/bundles/${id}/bundle.json';
 
-    // Hide loader once game initialises
-    window.__gameMounted = function() {
+    function showError(msg) {
       document.getElementById('loader').style.display = 'none';
-    };
-
-    // Show error if game.js throws or if it never calls __gameMounted
-    window.onerror = function(msg, src, line, col, err) {
-      document.getElementById('loader').style.display = 'none';
-      document.getElementById('error-msg').textContent =
-        (err && err.message) ? err.message : String(msg);
+      document.getElementById('error-msg').textContent = msg;
       document.getElementById('error-box').classList.add('visible');
+    }
+
+    function hideLoader() {
+      document.getElementById('loader').style.display = 'none';
+    }
+
+    // Called by mount.tsx after React renders successfully.
+    window.__gameMounted = function() { hideLoader(); };
+
+    // Global error handler.
+    window.onerror = function(msg, src, line, col, err) {
+      showError((err && err.message) ? err.message : String(msg));
       return true;
     };
-
-    // Timeout fallback: if __gameMounted not called within 10s, show error
-    var mountTimeout = setTimeout(function() {
-      if (document.getElementById('loader').style.display !== 'none') {
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('error-msg').textContent =
-          'game.js loaded but did not initialise within 10 seconds. ' +
-          'The game engine may be missing or malformed.';
-        document.getElementById('error-box').classList.add('visible');
-      }
-    }, 10000);
-
-    window.__gameMounted = function() {
-      clearTimeout(mountTimeout);
-      document.getElementById('loader').style.display = 'none';
-    };
   </script>
-  <script src="/bundles/${id}/game.js" onerror="
-    clearTimeout(mountTimeout);
-    document.getElementById('loader').style.display = 'none';
-    document.getElementById('error-msg').textContent = 'game.js could not be loaded. The file may be missing or the build failed.';
-    document.getElementById('error-box').classList.add('visible');
-  "></script>
+
+  <script src="/bundles/${id}/game.js"
+    onload="
+      // game.js is loaded — now boot the game by calling window.BGB.boot().
+      (async function() {
+        try {
+          if (!window.BGB || typeof window.BGB.boot !== 'function') {
+            throw new Error('game.js did not expose window.BGB.boot. The scaffold may be malformed.');
+          }
+          var rootEl = document.getElementById('game');
+          var bundleRes = await fetch('/bundles/${id}/bundle.json');
+          if (!bundleRes.ok) throw new Error('Failed to fetch bundle.json: ' + bundleRes.status);
+          var bundleData = await bundleRes.json();
+          await window.BGB.boot(rootEl, bundleData);
+          // __gameMounted is called inside mount.tsx; hide loader here as fallback.
+          document.getElementById('loader').style.display = 'none';
+        } catch(e) {
+          document.getElementById('loader').style.display = 'none';
+          document.getElementById('error-msg').textContent = e && e.message ? e.message : String(e);
+          document.getElementById('error-box').classList.add('visible');
+        }
+      })();
+    "
+    onerror="
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('error-msg').textContent = 'game.js could not be loaded. The file may be missing or the build failed.';
+      document.getElementById('error-box').classList.add('visible');
+    "
+  ></script>
 </body>
 </html>
     `;
