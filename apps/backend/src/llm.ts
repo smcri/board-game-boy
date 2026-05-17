@@ -43,11 +43,32 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
       });
 
     case 'groq':
-      throw new Error('Groq provider not yet wired — install @langchain/groq');
+      // Groq exposes an OpenAI-compatible Chat Completions API, so we reuse
+      // ChatOpenAI with a custom baseURL. This avoids depending on the
+      // (currently unstable) @langchain/groq package.
+      return new ChatOpenAI({
+        modelName: model,
+        apiKey: apiKey || process.env.GROQ_API_KEY,
+        configuration: {
+          baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
+        },
+      });
 
-    default:
+    case 'xai_grok':
+      // xAI also exposes an OpenAI-compatible API at https://api.x.ai/v1.
+      // Same trick as Groq: route through ChatOpenAI with a custom baseURL.
+      return new ChatOpenAI({
+        modelName: model,
+        apiKey: apiKey || process.env.XAI_API_KEY,
+        configuration: {
+          baseURL: process.env.XAI_BASE_URL || 'https://api.x.ai/v1',
+        },
+      });
+
+    default: {
       const _exhaustive: never = provider;
       throw new Error(`Unknown provider: ${_exhaustive}`);
+    }
   }
 }
 

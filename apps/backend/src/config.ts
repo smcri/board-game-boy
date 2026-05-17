@@ -11,6 +11,7 @@ const ConfigSchema = z.object({
   SQLITE_PATH: z.string().optional(),
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173,http://127.0.0.1:5173').transform((s) => s.split(',')),
   OLLAMA_BASE_URL: z.string().optional(),
+  // eslint-disable-next-line no-restricted-syntax -- log level is server-only; not a cross-cutting enum
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
 });
 

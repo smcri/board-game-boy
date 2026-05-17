@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { BuildMode, DEFAULT_MODELS, LlmProvider } from '@bgb/shared';
+import { DEFAULT_MODELS } from '@bgb/shared';
+import type { BuildMode, LlmProvider, SearchProvider, SseEvent } from '@bgb/shared';
 import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import { Input } from './ui/Input';
@@ -7,13 +8,21 @@ import { Label } from './ui/Label';
 import { Select } from './ui/Select';
 import { Textarea } from './ui/Textarea';
 import * as api from '../lib/api';
+import { normalizeUserText } from '../lib/storage';
 
 /**
  * Props for BuildForm component.
  */
 export interface BuildFormProps {
-  onBuildStart: (bundleId: string) => void;
-  onStreamEvent: (event: any) => void;
+  /**
+   * Called as soon as POST /builds returns. The ctx carries the provider tuple
+   * the parent needs in order to resume the build later with matching keys.
+   */
+  onBuildStart: (
+    bundleId: string,
+    ctx: { llm_provider: LlmProvider; search_provider?: SearchProvider },
+  ) => void;
+  onStreamEvent: (event: SseEvent) => void;
 }
 
 /**
@@ -27,7 +36,7 @@ export function BuildForm({ onBuildStart, onStreamEvent }: BuildFormProps) {
   const [customRules, setCustomRules] = useState('');
   const [llmProvider, setLlmProvider] = useState<LlmProvider>('openai');
   const [llmModel, setLlmModel] = useState(DEFAULT_MODELS['openai']);
-  const [searchProvider, setSearchProvider] = useState('tavily');
+  const [searchProvider, setSearchProvider] = useState<SearchProvider>('tavily');
   const [loading, setLoading] = useState(false);
 
   const llmProviders = Object.keys(DEFAULT_MODELS) as LlmProvider[];
@@ -41,16 +50,20 @@ export function BuildForm({ onBuildStart, onStreamEvent }: BuildFormProps) {
 
     setLoading(true);
     try {
+      const normalizedRules = customRules.trim() ? normalizeUserText(customRules) : undefined;
       const response = await api.createBuild({
         mode,
-        prompt,
-        custom_rules: customRules || undefined,
+        prompt: normalizeUserText(prompt),
+        custom_rules: normalizedRules,
         llm_provider: llmProvider,
         llm_model: llmModel,
         search_provider: searchProvider,
       });
 
-      onBuildStart(response.bundle_id);
+      onBuildStart(response.bundle_id, {
+        llm_provider: llmProvider,
+        search_provider: searchProvider,
+      });
 
       // Open SSE stream and emit events to parent.
       const closeStream = api.openBuildStream(response.bundle_id, (event) => {
@@ -162,7 +175,7 @@ export function BuildForm({ onBuildStart, onStreamEvent }: BuildFormProps) {
             <Select
               id="search-provider"
               value={searchProvider}
-              onChange={(e) => setSearchProvider(e.target.value)}
+              onChange={(e) => setSearchProvider(e.target.value as SearchProvider)}
               className="w-full"
             >
               <option value="tavily">Tavily</option>

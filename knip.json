@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.ts"],
+      "project": ["scripts/**/*.ts"]
+    },
+    "packages/shared": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/backend": {
+      "entry": ["src/index.ts", "src/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/scaffold": {
+      "entry": ["src/main.tsx", "src/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/ui": {
+      "entry": ["src/main.tsx", "src/__tests__/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}"]
+    }
+  },
+  "ignoreDependencies": [
+    "@types/node",
+    "vitest",
+    "tsx",
+    "typescript",
+    "prettier",
+    "@vitest/coverage-v8",
+    "@testing-library/jest-dom"
+  ],
+  "ignore": ["**/dist/**", "**/bundles/**", "**/.data/**", "apps/ui/.env*"]
+}

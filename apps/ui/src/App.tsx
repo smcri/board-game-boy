@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import type { SseEvent } from '@bgb/shared';
+import type { SseEvent, LlmProvider, SearchProvider } from '@bgb/shared';
 import { SettingsPanel } from './components/SettingsPanel';
 import { BuildForm } from './components/BuildForm';
 import { StreamPanel } from './components/StreamPanel';
@@ -19,6 +19,14 @@ import * as api from './lib/api';
  */
 export default function App() {
   const [bundleId, setBundleId] = useState<string | null>(null);
+  /**
+   * The provider tuple that started the *current* build. We remember it so the
+   * resume path can attach the matching localStorage keys without guessing.
+   */
+  const [buildCtx, setBuildCtx] = useState<{
+    llm_provider: LlmProvider;
+    search_provider?: SearchProvider;
+  } | null>(null);
   const [streamEvents, setStreamEvents] = useState<SseEvent[]>([]);
   const [interruptEvent, setInterruptEvent] = useState<Extract<
     SseEvent,
@@ -27,8 +35,9 @@ export default function App() {
   const [doneEvent, setDoneEvent] = useState<Extract<SseEvent, { type: 'done' }> | null>(null);
   const [closeStream, setCloseStream] = useState<(() => void) | null>(null);
 
-  const handleBuildStart = useCallback((id: string) => {
+  const handleBuildStart = useCallback((id: string, ctx: { llm_provider: LlmProvider; search_provider?: SearchProvider }) => {
     setBundleId(id);
+    setBuildCtx(ctx);
     setStreamEvents([]);
     setDoneEvent(null);
   }, []);
@@ -60,16 +69,16 @@ export default function App() {
 
   const handleResolveConflicts = useCallback(
     (decisions: Record<string, { decision: 'accept' | 'override'; value?: unknown; note?: string }>) => {
-      if (!bundleId) return;
+      if (!bundleId || !buildCtx) return;
 
-      api.resumeBuild(bundleId, decisions).catch((err) => {
+      api.resumeBuild(bundleId, decisions, buildCtx).catch((err) => {
         console.error('Resume error:', err);
         alert(`Resume failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       });
 
       setInterruptEvent(null);
     },
-    [bundleId],
+    [bundleId, buildCtx],
   );
 
   return (

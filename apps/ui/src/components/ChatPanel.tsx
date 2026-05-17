@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useChat } from 'ai/react';
+import { DEFAULT_MODELS, type LlmProvider } from '@bgb/shared';
 import { getLlmKey } from '../lib/storage';
 import { getBackendUrl } from '../lib/api';
 import clsx from 'clsx';
@@ -7,6 +8,13 @@ import clsx from 'clsx';
 export interface ChatPanelProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * Provider tuple to use for chat requests. If not supplied, falls back to
+   * OpenAI + its default model — but the caller should always pass the active
+   * build's provider so the user's chat key matches the model.
+   */
+  llm_provider?: LlmProvider;
+  llm_model?: string;
 }
 
 /**
@@ -14,17 +22,12 @@ export interface ChatPanelProps {
  * Streams responses from POST /chat endpoint.
  * Displays disabled state when no LLM API key is configured.
  */
-export function ChatPanel({ open, onClose }: ChatPanelProps) {
+export function ChatPanel({ open, onClose, llm_provider, llm_model }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Get current provider and model from settings (assume stored in localStorage)
-  const provider = (localStorage.getItem('llm_provider') || 'openai') as
-    | 'openai'
-    | 'anthropic'
-    | 'ollama'
-    | 'groq';
-  const model = localStorage.getItem('llm_model') || 'gpt-4o-mini';
+  const provider: LlmProvider = llm_provider ?? 'openai';
+  const model = llm_model ?? DEFAULT_MODELS[provider];
   const llmKey = getLlmKey(provider);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({

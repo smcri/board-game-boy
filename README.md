@@ -65,7 +65,7 @@ we evaluated and rejected. Point-in-time decisions are recorded as ADRs under
 - TypeScript on Node 20+; pnpm workspaces monorepo.
 - Orchestrator: **LangGraph.js** with `SqliteSaver` checkpointer and
   `interrupt()`-based human-in-the-loop (only for core-mechanic conflicts).
-- LLM providers (user-selectable): **OpenAI, Anthropic, Groq, Ollama**.
+- LLM providers (user-selectable): **OpenAI, Anthropic, Groq, xAI Grok, Ollama**.
 - Search providers (user-selectable): **Tavily, Brave, SerpAPI** + direct
   fetch via undici + Mozilla Readability + pdf-parse.
 - Backend HTTP: **Fastify** + SSE.

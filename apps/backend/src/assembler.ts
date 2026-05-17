@@ -65,8 +65,25 @@ export async function assembleBundle(state: BuildState): Promise<Partial<BuildSt
     const bundlePath = join(bundleDir, 'bundle.json');
     writeFileSync(bundlePath, JSON.stringify(bundle, null, 2));
 
-    // TODO: Validate assets exist in /bundles/{bundle_id}/assets/*.svg
-    // (Asset agent already wrote them)
+    // Validate every asset referenced in the manifest actually exists on disk.
+    // Missing files would silently render as blank shapes at runtime, which is
+    // a class of bug we want to surface at build time.
+    const assetDir = join(bundleDir, 'assets');
+    const missingAssets: string[] = [];
+    for (const entry of state.asset_manifest.entries) {
+      const assetPath = join(assetDir, entry.file);
+      if (!existsSync(assetPath)) {
+        missingAssets.push(entry.file);
+      }
+    }
+    if (missingAssets.length > 0) {
+      const msg = `Asset manifest references ${missingAssets.length} missing file(s): ${missingAssets.slice(0, 5).join(', ')}${missingAssets.length > 5 ? ` (+${missingAssets.length - 5} more)` : ''}`;
+      logger.error({ bundle_id: state.bundle_id, missingAssets }, msg);
+      return {
+        status: 'error',
+        errors: [...(state.errors ?? []), msg],
+      };
+    }
 
     // Compute cache key
     const scaffoldHash = computeScaffoldHash();

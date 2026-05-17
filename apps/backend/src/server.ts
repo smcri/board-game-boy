@@ -11,7 +11,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { z } from 'zod';
-import { BuildState, SseEvent } from '@bgb/shared';
+import { BuildState, SseEvent, LlmProvider, SearchProvider, BuildMode } from '@bgb/shared';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { getSseEmitter, emitSseEvent, cleanupEmitter } from './sse.js';
@@ -23,11 +23,11 @@ import { createReadStream, existsSync, readFileSync } from 'fs';
 
 const BuildRequest = z.object({
   prompt: z.string().min(1),
-  mode: z.enum(['known_game', 'known_with_overrides', 'fully_custom']),
+  mode: BuildMode,
   custom_rules: z.string().optional(),
-  llm_provider: z.enum(['openai', 'anthropic', 'ollama', 'groq']),
+  llm_provider: LlmProvider,
   llm_model: z.string().min(1),
-  search_provider: z.enum(['tavily', 'brave', 'serpapi']).optional(),
+  search_provider: SearchProvider.optional(),
 });
 
 const ResumeRequest = z.object({
@@ -37,11 +37,12 @@ const ResumeRequest = z.object({
 const ChatRequest = z.object({
   messages: z.array(
     z.object({
+      // eslint-disable-next-line no-restricted-syntax -- chat role is a Vercel AI SDK contract enum, not a cross-cutting one
       role: z.enum(['user', 'assistant', 'system']),
       content: z.string(),
     }),
   ),
-  llm_provider: z.enum(['openai', 'anthropic', 'ollama', 'groq']),
+  llm_provider: LlmProvider,
   llm_model: z.string().min(1),
 });
 
@@ -59,6 +60,24 @@ export async function buildServer() {
 
   // In-flight builds map: bundle_id → { state, emitter }
   const builds = new Map<string, { state: BuildState; promise: Promise<BuildState> }>();
+
+  /**
+   * Read an API-key header in a defence-in-depth way: the UI is supposed to
+   * have already normalised the value, but if a control character (CR, LF,
+   * NUL) ever sneaks through we refuse the request loudly rather than letting
+   * a downstream HTTP client (LangChain → provider) throw an opaque error.
+   */
+  function readKeyHeader(headers: Record<string, unknown>, name: string): string | undefined {
+    const raw = headers[name];
+    if (typeof raw !== 'string') return undefined;
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    // RFC 7230 VCHAR + SP + HTAB only.
+    if (!/^[\x21-\x7E \t]+$/.test(trimmed)) {
+      throw new Error(`Header ${name} contains illegal characters.`);
+    }
+    return trimmed;
+  }
 
   // ── Health Check ─────────────────────────────────────────────────────────
 
@@ -87,8 +106,8 @@ export async function buildServer() {
     } = parsed.data;
 
     const bundle_id = nanoid();
-    const llm_api_key = request.headers['x-llm-api-key'] as string | undefined;
-    const search_api_key = request.headers['x-search-api-key'] as string | undefined;
+    const llm_api_key = readKeyHeader(request.headers as Record<string, unknown>, 'x-llm-api-key');
+    const search_api_key = readKeyHeader(request.headers as Record<string, unknown>, 'x-search-api-key');
 
     const initialState: BuildState = {
       bundle_id,
@@ -274,7 +293,7 @@ export async function buildServer() {
     }
 
     const { messages, llm_provider, llm_model } = parsed.data;
-    const llm_api_key = request.headers['x-llm-api-key'] as string | undefined;
+    const llm_api_key = readKeyHeader(request.headers as Record<string, unknown>, 'x-llm-api-key');
 
     // Set streaming headers: Vercel AI SDK data-stream protocol
     reply.raw.writeHead(200, {
@@ -377,7 +396,7 @@ export async function buildServer() {
     window.BUNDLE_ID = '${id}';
     window.BUNDLE_URL = '/bundles/${id}/bundle.json';
   </script>
-  <script src="/bundles/${id}/game.js"><\/script>
+  <script src="/bundles/${id}/game.js"></script>
 </body>
 </html>
     `;

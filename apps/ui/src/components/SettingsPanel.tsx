@@ -1,11 +1,39 @@
 import React, { useState } from 'react';
-import { LlmProvider, SearchProvider, DEFAULT_MODELS } from '@bgb/shared';
+import { LlmProvider, SearchProvider, DEFAULT_MODELS, PROVIDER_LABELS } from '@bgb/shared';
 import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import { Input } from './ui/Input';
 import { Label } from './ui/Label';
 import { Select } from './ui/Select';
 import { useKeys } from '../lib/keys-hook';
+
+/**
+ * Normalise a pasted/typed API key:
+ *  - trim whitespace
+ *  - replace Unicode dashes (–, —, ‒, ―, ‐, ‑) with ASCII '-'
+ *  - replace smart quotes (“ ” ‘ ’) with their ASCII equivalents
+ *  - strip zero-width characters (U+200B/200C/200D/FEFF)
+ * Why: macOS "Smart Dashes" silently converts '-' to an en-dash on paste,
+ * which then fails the HTTP header validator in api.ts. Doing this at the
+ * input boundary means stored keys are always valid.
+ */
+function normalizeKey(raw: string): string {
+  return raw
+    // Strip ASCII control chars anywhere in the string — CR, LF, tab, NUL,
+    // form-feed, etc. PDF viewers and Notes-app frequently inject U+000D (CR)
+    // mid-string on copy, which then fails the HTTP header validator.
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    // Strip zero-width / BOM characters (invisible to the eye).
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    // Replace Unicode dashes with ASCII '-'.
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
+    // Replace smart quotes with ASCII equivalents.
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    // Non-breaking space → regular space (then trim).
+    .replace(/\u00A0/g, ' ')
+    .trim();
+}
 
 /**
  * Settings panel for LLM and search provider configuration.
@@ -16,8 +44,10 @@ export function SettingsPanel() {
 
   const [llmProvider, setLlmProvider] = useState<LlmProvider>('openai');
   const [llmKey, setLlmKey] = useState(keys.llmKey(llmProvider) || '');
+  const [showLlmKey, setShowLlmKey] = useState(false);
   const [searchProvider, setSearchProvider] = useState<SearchProvider>('tavily');
   const [searchKey, setSearchKey] = useState(keys.searchKey(searchProvider) || '');
+  const [showSearchKey, setShowSearchKey] = useState(false);
 
   const handleLlmProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProvider = e.target.value as LlmProvider;
@@ -71,7 +101,7 @@ export function SettingsPanel() {
           >
             {llmProviders.map((p) => (
               <option key={p} value={p}>
-                {p.charAt(0).toUpperCase() + p.slice(1)}
+                {PROVIDER_LABELS[p]}
               </option>
             ))}
           </Select>
@@ -86,12 +116,28 @@ export function SettingsPanel() {
           <div className="flex gap-2">
             <Input
               id="llm-key"
-              type="password"
+              type={showLlmKey ? 'text' : 'password'}
+              autoComplete="off"
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+              inputMode="text"
+              data-form-type="other"
               value={llmKey}
-              onChange={(e) => setLlmKey(e.target.value)}
+              onChange={(e) => setLlmKey(normalizeKey(e.target.value))}
+              onPaste={(e) => {
+                const text = e.clipboardData.getData('text');
+                if (text) {
+                  e.preventDefault();
+                  setLlmKey(normalizeKey(text));
+                }
+              }}
               placeholder="sk-..."
-              className="flex-1"
+              className="flex-1 font-mono"
             />
+            <Button onClick={() => setShowLlmKey((v) => !v)} variant="secondary" size="sm" type="button">
+              {showLlmKey ? 'Hide' : 'Show'}
+            </Button>
             <Button onClick={handleSaveLlmKey} variant="secondary" size="sm">
               Save
             </Button>
@@ -124,12 +170,28 @@ export function SettingsPanel() {
           <div className="flex gap-2">
             <Input
               id="search-key"
-              type="password"
+              type={showSearchKey ? 'text' : 'password'}
+              autoComplete="off"
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+              inputMode="text"
+              data-form-type="other"
               value={searchKey}
-              onChange={(e) => setSearchKey(e.target.value)}
+              onChange={(e) => setSearchKey(normalizeKey(e.target.value))}
+              onPaste={(e) => {
+                const text = e.clipboardData.getData('text');
+                if (text) {
+                  e.preventDefault();
+                  setSearchKey(normalizeKey(text));
+                }
+              }}
               placeholder="api-key..."
-              className="flex-1"
+              className="flex-1 font-mono"
             />
+            <Button onClick={() => setShowSearchKey((v) => !v)} variant="secondary" size="sm" type="button">
+              {showSearchKey ? 'Hide' : 'Show'}
+            </Button>
             <Button onClick={handleSaveSearchKey} variant="secondary" size="sm">
               Save
             </Button>

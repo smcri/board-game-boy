@@ -121,7 +121,7 @@ export function createGraph(llm: BaseChatModel, threadId?: string): ReturnType<S
 export async function runBuild(initialState: BuildState, llm: BaseChatModel): Promise<BuildState> {
   const graph = createGraph(llm, initialState.bundle_id);
 
-  let currentState = initialState;
+  const currentState = initialState;
   try {
     // Pass thread_id via config so checkpointer can associate checkpoints
     const finalState = await graph.invoke(currentState, {

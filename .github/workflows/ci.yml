@@ -28,10 +28,15 @@ jobs:
       - run: pnpm install
 
       - name: Typecheck
-        run: pnpm -r typecheck
+        run: pnpm typecheck
 
       - name: Lint
-        run: pnpm -r lint
+        run: pnpm lint
 
       - name: Test
         run: pnpm -r test
+
+      # Knip starts warn-only; once the codebase is clean we'll flip the
+      # `|| true` to strict mode.
+      - name: Knip (unused exports / deps)
+        run: pnpm knip || true
