@@ -69,7 +69,7 @@ export async function llmJsonRetry<T extends z.ZodTypeAny>(
    */
   const providerName = (llm.constructor?.name ?? '').toLowerCase();
   const isGroq = providerName.includes('groq') || providerName.includes('chatgroq');
-  const LLM_TIMEOUT_MS = isGroq ? 30_000 : 120_000;
+  const LLM_TIMEOUT_MS = isGroq ? 60_000 : 120_000;
 
   const invokeWithTimeout = async (
     structuredLlm: ReturnType<typeof withStructuredOutput>,
