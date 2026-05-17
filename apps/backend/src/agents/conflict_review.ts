@@ -10,14 +10,18 @@ import { emitSseEvent } from '../sse.js';
  * Review conflicts and interrupt if core_mechanic severity detected.
  */
 export async function conflictReview(state: BuildState): Promise<Partial<BuildState>> {
-  const coreConflicts = (state.conflicts || []).filter((c) => c.severity === 'core_mechanic');
+  // Only *unresolved* core-mechanic conflicts halt the graph. Once the user
+  // supplies a decision, the conflict carries a `resolution` and we proceed.
+  const unresolvedCore = (state.conflicts || []).filter(
+    (c) => c.severity === 'core_mechanic' && !c.resolution,
+  );
 
-  if (coreConflicts.length > 0) {
+  if (unresolvedCore.length > 0) {
     // Interrupt the graph; client must resume with decisions
     emitSseEvent(state.bundle_id, {
       type: 'interrupt',
       reason: 'core_mechanic_conflicts',
-      conflicts: coreConflicts,
+      conflicts: unresolvedCore,
     });
 
     return {

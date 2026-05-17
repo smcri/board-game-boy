@@ -112,8 +112,8 @@ describe('Renderer', () => {
       />,
     );
 
-    // Assert board is rendered
-    const boardSvg = screen.getByRole('img', { hidden: true });
+    // Assert board is rendered with the right aria-label
+    const boardSvg = screen.getByRole('img', { name: 'square-board' });
     expect(boardSvg).toBeTruthy();
 
     // Assert title
@@ -136,8 +136,9 @@ describe('Renderer', () => {
       />,
     );
 
-    // Assert player panels
-    expect(screen.getByText(/Player \d+/)).toBeTruthy();
+    // Assert player panels - should find at least one player panel
+    const playerPanels = screen.getAllByText(/Player \d+/);
+    expect(playerPanels.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should render action bar with available actions', () => {
@@ -160,5 +161,123 @@ describe('Renderer', () => {
     expect(screen.getByText('Actions')).toBeTruthy();
     // The action button should be present
     expect(screen.getByRole('button', { name: /Mark Square/ })).toBeTruthy();
+  });
+
+  it('should render a hex grid board', () => {
+    const bundle = createTicTacToeBundle();
+    const boardConfig: BoardConfig = {
+      kind: 'grid_hex',
+      nodes: Array.from({ length: 7 }, (_, i) => ({
+        id: `hex_${i}`,
+        coords: { q: i % 3, r: Math.floor(i / 3) },
+      })),
+    };
+
+    const engine = createEngine(bundle);
+    render(
+      <App
+        engine={engine}
+        bundle={bundle}
+        boardConfig={boardConfig}
+      />,
+    );
+
+    // Assert hex board is rendered
+    const boardSvg = screen.getByRole('img', { name: 'hex-board' });
+    expect(boardSvg).toBeTruthy();
+
+    // Should contain polygon elements for hexagons
+    const polygons = boardSvg.querySelectorAll('polygon');
+    expect(polygons.length).toBeGreaterThan(0);
+  });
+
+  it('should render a graph board', () => {
+    const bundle = createTicTacToeBundle();
+    const boardConfig: BoardConfig = {
+      kind: 'graph',
+      nodes: [
+        { id: 'node_a', coords: { x: 50, y: 50 } },
+        { id: 'node_b', coords: { x: 150, y: 50 } },
+        { id: 'node_c', coords: { x: 100, y: 120 } },
+      ],
+    };
+
+    const engine = createEngine(bundle);
+    render(
+      <App
+        engine={engine}
+        bundle={bundle}
+        boardConfig={boardConfig}
+      />,
+    );
+
+    // Assert graph board is rendered
+    const boardSvg = screen.getByRole('img', { name: 'graph-board' });
+    expect(boardSvg).toBeTruthy();
+
+    // Should contain circle elements for nodes
+    const circles = boardSvg.querySelectorAll('circle');
+    expect(circles.length).toBeGreaterThan(0);
+  });
+
+  it('should render a track board', () => {
+    const bundle = createTicTacToeBundle();
+    const boardConfig: BoardConfig = {
+      kind: 'track',
+      nodes: Array.from({ length: 10 }, (_, i) => ({
+        id: `track_${i}`,
+      })),
+    };
+
+    const engine = createEngine(bundle);
+    render(
+      <App
+        engine={engine}
+        bundle={bundle}
+        boardConfig={boardConfig}
+      />,
+    );
+
+    // Assert track board is rendered
+    const boardSvg = screen.getByRole('img', { name: 'track-board' });
+    expect(boardSvg).toBeTruthy();
+
+    // Should contain circle elements for track nodes
+    const circles = boardSvg.querySelectorAll('circle');
+    expect(circles.length).toBeGreaterThan(0);
+  });
+
+  it('should render a region map board', () => {
+    const bundle = createTicTacToeBundle();
+    const boardConfig: BoardConfig = {
+      kind: 'region_map',
+      nodes: Array.from({ length: 6 }, (_, i) => ({ id: `node_${i}` })),
+      regions: [
+        { id: 'north', nodes: ['node_0', 'node_1'] },
+        { id: 'south', nodes: ['node_2', 'node_3'] },
+        { id: 'west', nodes: ['node_4', 'node_5'] },
+      ],
+    };
+
+    const engine = createEngine(bundle);
+    render(
+      <App
+        engine={engine}
+        bundle={bundle}
+        boardConfig={boardConfig}
+      />,
+    );
+
+    // Assert region map board is rendered
+    const boardSvg = screen.getByRole('img', { name: 'region-map-board' });
+    expect(boardSvg).toBeTruthy();
+
+    // Should contain rect elements for regions
+    const rects = boardSvg.querySelectorAll('rect');
+    expect(rects.length).toBeGreaterThan(0);
+
+    // Should contain text labels for regions
+    const texts = boardSvg.querySelectorAll('text');
+    expect(texts.length).toBeGreaterThan(0);
   });
 });

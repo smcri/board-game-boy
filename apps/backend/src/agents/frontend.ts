@@ -14,6 +14,10 @@ import { logger } from '../logger.js';
  * Frontend agent: generates BoardConfig and writes config files.
  */
 export async function frontendAgent(state: BuildState, _llm: BaseChatModel): Promise<Partial<BuildState>> {
+  // Defence in depth: if the graph reached this node despite a HITL halt, pass through.
+  if (state.status === 'awaiting_review') {
+    return { status: 'awaiting_review' };
+  }
   try {
     if (!state.rules_dsl) {
       throw new Error('No RulesDsl available for frontend generation');

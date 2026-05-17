@@ -9,7 +9,7 @@ import { getLlmKey, getSearchKey } from './storage';
  * Get the backend base URL from environment.
  * Falls back to current origin if not set (for dev/testing).
  */
-function getBackendUrl(): string {
+export function getBackendUrl(): string {
   return import.meta.env.VITE_BACKEND_URL || window.location.origin;
 }
 

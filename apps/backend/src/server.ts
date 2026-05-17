@@ -16,6 +16,7 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { getSseEmitter, emitSseEvent, cleanupEmitter } from './sse.js';
 import { makeLlm } from './llm.js';
+import { chatStream, type ChatMessage } from './chat.js';
 import { runBuild } from './graph.js';
 import { nanoid } from 'nanoid';
 import { createReadStream, existsSync, readFileSync } from 'fs';
@@ -31,6 +32,17 @@ const BuildRequest = z.object({
 
 const ResumeRequest = z.object({
   decision: z.record(z.unknown()),
+});
+
+const ChatRequest = z.object({
+  messages: z.array(
+    z.object({
+      role: z.enum(['user', 'assistant', 'system']),
+      content: z.string(),
+    }),
+  ),
+  llm_provider: z.enum(['openai', 'anthropic', 'ollama', 'groq']),
+  llm_model: z.string().min(1),
 });
 
 /**
@@ -186,12 +198,120 @@ export async function buildServer() {
         return reply.status(404).send({ error: 'Build not found' });
       }
 
-      // TODO: Update build.state.user_decision and resume graph execution
-      // For MVP, this is a placeholder.
+      // CLOSED: gap 3 - resume builds after HITL interrupt
+      // Merge user decision into state and resume graph from checkpoint
+      const decision = parsed.data.decision as Record<string, 'accept' | 'override' | { value?: unknown; note?: string }>;
+      const resumedState: BuildState = {
+        ...build.state,
+        user_decision: decision,
+      };
+
+      // Apply decisions to conflicts
+      if (resumedState.conflicts) {
+        for (const [conflictId, decisionValue] of Object.entries(decision)) {
+          const conflict = resumedState.conflicts.find((c) => c.id === conflictId);
+          if (conflict) {
+            if (typeof decisionValue === 'string') {
+              conflict.resolution = { decision: decisionValue as 'accept' | 'override' };
+            } else if (typeof decisionValue === 'object' && decisionValue !== null && 'value' in decisionValue) {
+              conflict.resolution = {
+                decision: 'override',
+                value: (decisionValue as any).value,
+                note: (decisionValue as any).note,
+              };
+            }
+          }
+        }
+      }
+
+      // Update the stored state
+      build.state = resumedState;
+
+      // Re-invoke graph to continue from checkpoint
+      const llm = await makeLlm(build.state.llm_provider, build.state.llm_model, build.state.llm_api_key);
+      const resumedPromise = runBuild(resumedState, llm);
+      builds.set(id, { state: resumedState, promise: resumedPromise });
+
+      // Clean up on completion
+      resumedPromise
+        .then((finalState) => {
+          const coreConflicts = (finalState.conflicts || []).filter((c) => c.severity === 'core_mechanic');
+          emitSseEvent(id, {
+            type: 'done',
+            bundle_id: id,
+            bundle_url: `/bundles/${id}/play`,
+            conflicts_summary: {
+              blocking: coreConflicts.length,
+              non_blocking: (finalState.conflicts || []).length - coreConflicts.length,
+              unsupported: (finalState.conflicts || []).filter((c) => c.severity === 'unsupported_effect').length,
+            },
+          });
+        })
+        .catch((err) => {
+          emitSseEvent(id, {
+            type: 'error',
+            node: 'orchestrator',
+            message: String(err),
+          });
+        })
+        .finally(() => {
+          setTimeout(() => {
+            builds.delete(id);
+            cleanupEmitter(id);
+          }, 60000);
+        });
 
       return { ok: true };
     },
   );
+
+  // ── Chat Endpoint ───────────────────────────────────────────────────────
+
+  fastify.post<{ Body: z.infer<typeof ChatRequest> }>('/chat', async (request, reply) => {
+    const parsed = ChatRequest.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.message });
+    }
+
+    const { messages, llm_provider, llm_model } = parsed.data;
+    const llm_api_key = request.headers['x-llm-api-key'] as string | undefined;
+
+    // Set streaming headers: Vercel AI SDK data-stream protocol
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Vercel-AI-Data-Stream': 'v1',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+
+    try {
+      // Stream chat response
+      const stream = chatStream({
+        provider: llm_provider,
+        model: llm_model,
+        apiKey: llm_api_key,
+        messages: messages as ChatMessage[],
+      });
+
+      for await (const token of stream) {
+        // Vercel AI SDK data-stream format: each chunk is `0:"<json-escaped text>"\n`
+        const escaped = JSON.stringify(token);
+        reply.raw.write(`0:${escaped}\n`);
+      }
+
+      // End the stream
+      reply.raw.end();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, 'Chat error');
+      // If headers already sent, just close the connection
+      if (!reply.raw.headersSent) {
+        return reply.status(500).send({ error: message });
+      }
+      reply.raw.end();
+    }
+  });
 
   // ── Bundle Download ──────────────────────────────────────────────────────
 

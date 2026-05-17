@@ -5,6 +5,7 @@ import { BuildForm } from './components/BuildForm';
 import { StreamPanel } from './components/StreamPanel';
 import { ConflictModal } from './components/ConflictModal';
 import { BundleSummary } from './components/BundleSummary';
+import { ChatToggle } from './components/ChatToggle';
 import * as api from './lib/api';
 
 /**
@@ -112,6 +113,9 @@ export default function App() {
         conflicts={interruptEvent?.conflicts ?? []}
         onResolve={handleResolveConflicts}
       />
+
+      {/* Chat Toggle (floating button + panel) */}
+      <ChatToggle />
     </div>
   );
 }
