@@ -3,7 +3,7 @@
  * Used by the /chat endpoint for rules clarification.
  */
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
+import { HumanMessage, AIMessage, SystemMessage, BaseMessage } from '@langchain/core/messages';
 import { LlmProvider } from '@bgb/shared';
 import { makeLlm } from './llm.js';
 
@@ -29,8 +29,8 @@ function toBaseMessages(messages: ChatMessage[]): BaseMessage[] {
     } else if (msg.role === 'assistant') {
       return new AIMessage(msg.content);
     } else {
-      // system role: wrap in HumanMessage with context (LangChain doesn't have native SystemMessage in all models)
-      return new HumanMessage(`[SYSTEM: ${msg.content}]`);
+      // System role — supported natively across all providers in @langchain/core ^0.3.
+      return new SystemMessage(msg.content);
     }
   });
 }
