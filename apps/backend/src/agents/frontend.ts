@@ -15,6 +15,7 @@ import { join } from 'path';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { llmJsonRetry } from '../llm-retry.js';
+import { makeLlm } from '../llm.js';
 import { z } from 'zod';
 
 const UICopySchema = z.object({
@@ -101,7 +102,7 @@ export async function frontendAgent(state: BuildState, llm: BaseChatModel): Prom
 
     // LLM-driven UI copy (player-facing labels, tagline, victory message).
     // Always falls back to deterministic copy if the LLM call fails.
-    const uiCopy = (await fetchUiCopy(llm, state)) ?? buildFallbackUiCopy(state);
+    const uiCopy = (await fetchUiCopy(state)) ?? buildFallbackUiCopy(state);
     writeFileSync(join(scratchDir, 'ui-copy.json'), JSON.stringify(uiCopy, null, 2));
 
     return {
@@ -125,8 +126,23 @@ export async function frontendAgent(state: BuildState, llm: BaseChatModel): Prom
 /**
  * Ask the LLM for UI copy. Returns null if all retry attempts fail.
  */
-async function fetchUiCopy(llm: BaseChatModel, state: BuildState): Promise<UICopy | null> {
+async function fetchUiCopy(state: BuildState): Promise<UICopy | null> {
   if (!state.rules_dsl) return null;
+  // UI copy (button labels, victory message) is creative — use a higher
+  // temperature so two rebuilds produce different flavor text.
+  // If we can't create the creative LLM (e.g. missing key in tests), fall back.
+  let creativeLlm;
+  try {
+    creativeLlm = await makeLlm(
+      state.llm_provider,
+      state.llm_model,
+      state.llm_api_key,
+      0.7,
+    );
+  } catch (err) {
+    logger.warn({ err: String(err) }, 'frontend_agent: creative LLM unavailable, using fallback');
+    return null;
+  }
   const actions = state.rules_dsl.actions
     .map((a) => `- ${a.id}${a.name ? ` (current name: "${a.name}")` : ''}`)
     .join('\n');
@@ -144,7 +160,7 @@ Keep copy lively but concise. Every action id in the list must have a label.`;
   const userPrompt = `Game: ${state.rules_dsl.metadata.game_name}\n${state.rules_dsl.metadata.summary ?? ''}\n\nActions:\n${actions}`;
 
   const { value, attempts, error } = await llmJsonRetry({
-    llm,
+    llm: creativeLlm,
     schema: UICopySchema,
     schemaName: 'UICopy',
     systemPrompt,

@@ -20,6 +20,7 @@ import { join } from 'path';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { llmJsonRetry } from '../llm-retry.js';
+import { makeLlm } from '../llm.js';
 import { z } from 'zod';
 
 // Allowed CSS color formats: #RGB, #RRGGBB, or named CSS colors.
@@ -67,7 +68,7 @@ export async function assetAgent(state: BuildState, llm: BaseChatModel): Promise
 
     // 1. Ask the LLM for a coherent asset plan (theme, palette, glyphs).
     //    Falls back to a deterministic plan if the LLM fails.
-    const plan = (await fetchAssetPlan(llm, state)) ?? buildFallbackPlan(state);
+    const plan = (await fetchAssetPlan(state)) ?? buildFallbackPlan(state);
 
     // 2. Apply the plan deterministically: walk entities, write SVGs, build manifest.
     const entries: AssetEntry[] = [];
@@ -141,8 +142,23 @@ export async function assetAgent(state: BuildState, llm: BaseChatModel): Promise
  * Build an LLM prompt for the AssetPlan and return the parsed plan,
  * or null if all retry attempts fail.
  */
-async function fetchAssetPlan(llm: BaseChatModel, state: BuildState): Promise<AssetPlan | null> {
+async function fetchAssetPlan(state: BuildState): Promise<AssetPlan | null> {
   if (!state.rules_dsl) return null;
+  // Theme + glyph generation is creative — use a higher temperature so two
+  // rebuilds of the same game produce visually distinct palettes/labels.
+  // If we can't create the creative LLM (e.g. missing key in tests), fall back.
+  let creativeLlm;
+  try {
+    creativeLlm = await makeLlm(
+      state.llm_provider,
+      state.llm_model,
+      state.llm_api_key,
+      0.7,
+    );
+  } catch (err) {
+    logger.warn({ err: String(err) }, 'asset_agent: creative LLM unavailable, using fallback');
+    return null;
+  }
   const entityList = state.rules_dsl.entities
     .map((e) => {
       const identity = e.components.Identity as { kind?: string } | undefined;
@@ -165,7 +181,7 @@ Keep labels short and visually distinct. Match the theme.`;
   const userPrompt = `Game: ${state.rules_dsl.metadata.game_name}\n\nEntities:\n${entityList}`;
 
   const { value, attempts, error } = await llmJsonRetry({
-    llm,
+    llm: creativeLlm,
     schema: AssetPlanSchema,
     schemaName: 'AssetPlan',
     systemPrompt,
