@@ -97,6 +97,7 @@ export class GameEngine {
           this.eventLog,
           this.rng,
           currentPlayer,
+          params, // pass click params so move verb can use params.piece + params.to
         );
       }
     } catch (e) {

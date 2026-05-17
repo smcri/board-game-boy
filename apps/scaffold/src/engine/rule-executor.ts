@@ -34,6 +34,7 @@ export class RuleExecutor {
     eventLog: EventLog,
     rng: () => number,
     currentPlayer: EntityId,
+    params?: Record<string, unknown>,
   ): Promise<void> {
     const eff = effect as Record<string, unknown>;
     const verb = eff.verb as string;
@@ -60,10 +61,16 @@ export class RuleExecutor {
     }
 
     if (verb === 'move') {
-      const entity = await this.resolveEntityRef(store, currentPlayer, eff.entity as unknown);
+      // Resolve entity: prefer params.piece (click-to-move), fall back to effect selector
+      const entityRef = (params?.piece !== undefined) ? params.piece : eff.entity;
+      const entity = await this.resolveEntityRef(store, currentPlayer, entityRef);
       if (!entity) return;
-      const pos = eff.to as Record<string, unknown>;
-      store.addComponent(entity, 'Position', { ...pos });
+      const effTo = eff.to as Record<string, unknown>;
+      // Resolve destination node: prefer params.to (click-to-move), fall back to effect.to.node
+      const destNode = (params?.to as string | undefined) ?? (effTo.node as string | undefined);
+      const pos: Record<string, unknown> = { ...effTo };
+      if (destNode) pos['node'] = destNode;
+      store.addComponent(entity, 'Position', pos);
     }
 
     if (verb === 'choose') {
