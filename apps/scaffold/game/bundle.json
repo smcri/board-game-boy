@@ -69,10 +69,10 @@
   },
   "asset_manifest": {
     "palette": [
-      "#E3F2FD",
-      "#2196F3",
-      "#1565C0",
-      "#FFA726"
+      "#F3E5F5",
+      "#9C27B0",
+      "#6A1B9A",
+      "#FFB300"
     ],
     "entries": [
       {
@@ -94,7 +94,7 @@
   "conflicts_unresolved_non_blocking": [],
   "metadata": {
     "game_name": "Test Game",
-    "built_at": "2026-05-17T13:01:57.324Z",
+    "built_at": "2026-05-17T13:05:21.815Z",
     "llm_provider": "openai",
     "llm_model": "gpt-4o-mini",
     "mode": "fully_custom"

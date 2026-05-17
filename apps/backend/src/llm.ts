@@ -14,7 +14,19 @@ import { config } from './config.js';
 /**
  * Create an LLM instance for the given provider and model.
  */
-export async function makeLlm(provider: LlmProvider, model: string, apiKey?: string): Promise<BaseChatModel> {
+/**
+ * Create a chat model for the given provider.
+ *
+ * @param temperature  Sampling temperature; defaults to 0 for deterministic
+ *                     structured-output extraction. Pass 0.5–0.9 for creative
+ *                     work (theme generation, UI copy) where variety is desired.
+ */
+export async function makeLlm(
+  provider: LlmProvider,
+  model: string,
+  apiKey?: string,
+  temperature: number = 0,
+): Promise<BaseChatModel> {
   const needsKey = PROVIDER_NEEDS_KEY[provider];
 
   if (needsKey && !apiKey) {
@@ -28,21 +40,21 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
       return new ChatOpenAI({
         modelName: model,
         apiKey: apiKey || process.env.OPENAI_API_KEY,
-        temperature: 0,
+        temperature,
       });
 
     case 'anthropic':
       return new ChatAnthropic({
         modelName: model,
         apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
-        temperature: 0,
+        temperature,
       });
 
     case 'ollama':
       return new ChatOllama({
         model,
         baseUrl: config.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
-        temperature: 0,
+        temperature,
       });
 
     case 'groq':
@@ -52,7 +64,7 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
       return new ChatOpenAI({
         modelName: model,
         apiKey: apiKey || process.env.GROQ_API_KEY,
-        temperature: 0,
+        temperature,
         configuration: {
           baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
         },
@@ -64,7 +76,7 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
       return new ChatOpenAI({
         modelName: model,
         apiKey: apiKey || process.env.XAI_API_KEY,
-        temperature: 0,
+        temperature,
         configuration: {
           baseURL: process.env.XAI_BASE_URL || 'https://api.x.ai/v1',
         },
