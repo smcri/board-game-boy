@@ -22,7 +22,11 @@ export interface BuildFormProps {
     bundleId: string,
     ctx: { llm_provider: LlmProvider; search_provider?: SearchProvider },
   ) => void;
+  /** Called immediately after the SSE connection is opened with its close handle. */
+  onStreamOpen: (closeFn: () => void) => void;
   onStreamEvent: (event: SseEvent) => void;
+  /** App calls this to register a reset callback so it can clear loading state. */
+  onRegisterReset: (resetFn: () => void) => void;
 }
 
 /**
@@ -30,7 +34,7 @@ export interface BuildFormProps {
  * Collects mode, prompt, custom_rules, LLM provider/model, and search provider.
  * On submit, calls api.createBuild and then opens the SSE stream.
  */
-export function BuildForm({ onBuildStart, onStreamEvent }: BuildFormProps) {
+export function BuildForm({ onBuildStart, onStreamOpen, onStreamEvent, onRegisterReset }: BuildFormProps) {
   const [mode, setMode] = useState<BuildMode>('fully_custom');
   const [prompt, setPrompt] = useState('');
   const [customRules, setCustomRules] = useState('');
@@ -38,6 +42,11 @@ export function BuildForm({ onBuildStart, onStreamEvent }: BuildFormProps) {
   const [llmModel, setLlmModel] = useState(DEFAULT_MODELS['openai']);
   const [searchProvider, setSearchProvider] = useState<SearchProvider>('tavily');
   const [loading, setLoading] = useState(false);
+
+  // Register our reset function with the parent so App can clear loading state.
+  React.useEffect(() => {
+    onRegisterReset(() => setLoading(false));
+  }, [onRegisterReset]);
 
   const llmProviders = Object.keys(DEFAULT_MODELS) as LlmProvider[];
 
@@ -65,12 +74,11 @@ export function BuildForm({ onBuildStart, onStreamEvent }: BuildFormProps) {
         search_provider: searchProvider,
       });
 
-      // Open SSE stream and emit events to parent.
-      const closeStream = api.openBuildStream(response.bundle_id, (event) => {
+      // Open SSE stream and pass the close handle up to App.
+      const closeFn = api.openBuildStream(response.bundle_id, (event) => {
         onStreamEvent(event);
       });
-
-      // Keep stream open; parent is responsible for closing it.
+      onStreamOpen(closeFn);
     } catch (err) {
       console.error('Build error:', err);
       alert(`Build failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
