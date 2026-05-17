@@ -86,6 +86,16 @@ export async function buildServer() {
 
   // ── Health Check ─────────────────────────────────────────────────────────
 
+  // Root route — required by HF Spaces proxy readiness check
+  fastify.get('/', async () => {
+    return {
+      service: 'board-game-builder',
+      version: '0.1.0',
+      status: 'ok',
+      endpoints: ['/healthz', '/builds', '/builds/:id/stream', '/bundles/:id', '/chat'],
+    };
+  });
+
   fastify.get('/healthz', async () => {
     return {
       ok: true,
