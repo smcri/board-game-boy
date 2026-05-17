@@ -14,6 +14,7 @@ import { fetchAndExtract } from '../web/fetcher.js';
 import { emitSseEvent } from '../sse.js';
 import { logger } from '../logger.js';
 import { llmJsonRetry } from '../llm-retry.js';
+import { EXAMPLE_RULES_DSL_JSON } from './rules-example.js';
 
 /**
  * Rules agent node.
@@ -237,83 +238,28 @@ ${verbList.join(', ')}
 - Every conflict (if any) MUST have \`id\`, \`rule\`, \`sources\` (array), and \`confidence\` (number).
 - If you are unsure about a specific rule, ADD it to \`conflicts\` rather than inventing.
 
-## CONCRETE EXAMPLE (Snakes & Ladders — copy this shape exactly)
+## CONCRETE EXAMPLE (Snakes & Ladders — study the SHAPE, not the content)
 
-NOTE: The values below (e.g. \`1\`, \`"player1"\`, \`6\`) are literal example values,
-NOT template placeholders. Do not emit strings like \`"{die_roll}"\` or
-\`"{current_player}"\` — emit concrete numbers and string literals appropriate
-for the game you are modelling. Paths may include integer indices or named
-ids, but never wrapped-in-braces template variables.
+IMPORTANT: The JSON below is ONE specific game. Your output must describe the
+game the user requested, not Snakes & Ladders. Use the same field names, the
+same discriminator keys (e.g. "op", "verb"), the same component names — but
+fill them with entities, actions, and win conditions for the requested game.
 
+Common mistakes to avoid:
+  ❌ Identity: { "kind": "board" }          — Identity requires BOTH "name" AND "kind"
+  ✅ Identity: { "name": "Main board", "kind": "board" }
 
-{
-  "dsl_version": "1.0",
-  "metadata": {
-    "game_name": "Snakes and Ladders",
-    "summary": "Players roll a die to advance a token across 100 numbered squares. Landing on the bottom of a ladder climbs up; landing on a snake's head slides down. First to reach square 100 wins.",
-    "min_players": 2,
-    "max_players": 4
-  },
-  "entities": [
-    { "id": "board", "components": { "Identity": { "kind": "board" }, "BoardNode": { "kind": "track_square" } } },
-    { "id": "die", "components": { "Identity": { "kind": "die" } } },
-    { "id": "player1", "components": { "Identity": { "kind": "player" }, "Player": { "seat": 1 } } },
-    { "id": "player2", "components": { "Identity": { "kind": "player" }, "Player": { "seat": 2 } } },
-    { "id": "token_p1", "components": { "Identity": { "kind": "token" } } },
-    { "id": "token_p2", "components": { "Identity": { "kind": "token" } } }
-  ],
-  "actions": [
-    {
-      "id": "roll_and_move",
-      "name": "Roll the die and advance your token",
-      "actor": "player",
-      "preconditions": [
-        { "kind": "phase_is", "phase": "main" },
-        { "kind": "is_current_player" }
-      ],
-      "effect": [
-        { "op": "random", "path": "state.last_roll", "kind": "die", "sides": 6 },
-        { "op": "inc", "path": "tokens.player1.square", "by": 1 }
-      ]
-    },
-    {
-      "id": "apply_ladder",
-      "name": "Climb a ladder",
-      "actor": "system",
-      "preconditions": [
-        { "kind": "expression", "expr": "tokens.player1.square == 4" }
-      ],
-      "effect": [
-        { "op": "set", "path": "tokens.player1.square", "value": 14 }
-      ]
-    },
-    {
-      "id": "apply_snake",
-      "name": "Slide down a snake",
-      "actor": "system",
-      "preconditions": [
-        { "kind": "expression", "expr": "tokens.player1.square == 17" }
-      ],
-      "effect": [
-        { "op": "set", "path": "tokens.player1.square", "value": 7 }
-      ]
-    }
-  ],
-  "win_conditions": [
-    {
-      "id": "reach_100",
-      "description": "First player whose token reaches or exceeds square 100 wins",
-      "when": { "kind": "expression", "expr": "tokens.player1.square >= 100 or tokens.player2.square >= 100" }
-    }
-  ],
-  "conflicts": [
-    {
-      "id": "exact_landing_rule",
-      "rule": "Some rulesets require landing on 100 by exact die roll; overshoot bounces back. Others let any roll >= 100 win.",
-      "sources": ["wikipedia:Snakes_and_Ladders"],
-      "confidence": 0.7,
-      "severity": "core_mechanic"
-    }
-  ]
-}`;
+  ❌ precondition: { "kind": "phase_is", "phase": "main" }   — wrong field; use "op"
+  ✅ precondition: { "op": "eq", "path": "...", "value": ... }
+
+  ❌ effect: { "op": "set", "path": "...", "value": ... }   — effects use "verb" not "op"
+  ✅ effect: { "verb": "set", "entity": "...", "component": "...", "field": "...", "value": ... }
+
+  ❌ sources: ["some url string"]            — sources must be objects, not strings
+  ✅ sources: [{ "url": "https://...", "source_type": "fan" }]
+
+  ❌ conflicts without "description"        — "description" is required
+  ✅ conflicts with "id", "rule", "description", "sources", "severity", "confidence"
+
+${EXAMPLE_RULES_DSL_JSON}`;
 }
