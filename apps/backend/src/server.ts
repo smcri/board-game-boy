@@ -172,13 +172,15 @@ export async function buildServer() {
   fastify.get('/builds/:id/stream', async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    // Set SSE headers
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    });
+    // Set SSE headers — let @fastify/cors handle Access-Control-Allow-Origin
+    reply
+      .code(200)
+      .header('Content-Type', 'text/event-stream')
+      .header('Cache-Control', 'no-cache')
+      .header('Connection', 'keep-alive');
+    // Flush headers immediately so the browser opens the event stream
+    // without waiting for the first data event (avoids proxy buffering).
+    reply.raw.flushHeaders();
 
     const emitter = getSseEmitter(id);
     const buffer = emitter.getBuffer();
@@ -319,14 +321,15 @@ export async function buildServer() {
     const { messages, llm_provider, llm_model } = parsed.data;
     const llm_api_key = readKeyHeader(request.headers as Record<string, unknown>, 'x-llm-api-key');
 
-    // Set streaming headers: Vercel AI SDK data-stream protocol
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'X-Vercel-AI-Data-Stream': 'v1',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    });
+    // Set streaming headers — let @fastify/cors handle Access-Control-Allow-Origin.
+    // We set headers directly on the raw stream so flushHeaders() picks them up
+    // immediately (Fastify's reply.header() is only written when the handler returns).
+    reply.raw.statusCode = 200;
+    reply.raw.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    reply.raw.setHeader('X-Vercel-AI-Data-Stream', 'v1');
+    reply.raw.setHeader('Cache-Control', 'no-cache');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    reply.raw.flushHeaders();
 
     try {
       // Stream chat response
@@ -372,6 +375,17 @@ export async function buildServer() {
   };
   fastify.get<{ Params: { id: string } }>('/bundles/:id', serveBundleJson);
   fastify.get<{ Params: { id: string } }>('/bundles/:id/bundle.json', serveBundleJson);
+  fastify.get<{ Params: { id: string } }>('/bundles/:id/download', async (request, reply) => {
+    const { id } = request.params;
+    const bundlePath = `${config.BUNDLES_DIR}/${id}/bundle.json`;
+    if (!existsSync(bundlePath)) {
+      return reply.status(404).send({ error: 'Bundle not found' });
+    }
+    reply
+      .type('application/json')
+      .header('Content-Disposition', `attachment; filename="${id}.bundle.json"`);
+    return createReadStream(bundlePath);
+  });
 
   fastify.get<{ Params: { id: string } }>('/bundles/:id/game.js', async (request, reply) => {
     const { id } = request.params;
@@ -387,17 +401,26 @@ export async function buildServer() {
 
   fastify.get<{ Params: { id: string; path: string } }>('/bundles/:id/assets/*', async (request, reply) => {
     const { id } = request.params;
-    const path = (request.params as { path: string }).path;
-    const assetPath = `${config.BUNDLES_DIR}/${id}/assets/${path}`;
+    const rawPath = (request.params as { path: string }).path;
 
-    if (!existsSync(assetPath)) {
+    // Guard against path traversal: normalise and ensure the resolved path
+    // stays within the expected bundle assets directory.
+    const nodePath = await import('node:path');
+    const bundleAssetsDir = nodePath.resolve(config.BUNDLES_DIR, id, 'assets');
+    const resolvedAssetPath = nodePath.resolve(bundleAssetsDir, rawPath);
+    if (!resolvedAssetPath.startsWith(bundleAssetsDir + nodePath.sep) &&
+        resolvedAssetPath !== bundleAssetsDir) {
+      return reply.status(400).send({ error: 'Invalid asset path' });
+    }
+
+    if (!existsSync(resolvedAssetPath)) {
       return reply.status(404).send({ error: 'Asset not found' });
     }
 
-    if (path.endsWith('.svg')) {
+    if (rawPath.endsWith('.svg')) {
       reply.type('image/svg+xml');
     }
-    return createReadStream(assetPath);
+    return createReadStream(resolvedAssetPath);
   });
 
   // ── Play Page ────────────────────────────────────────────────────────────
