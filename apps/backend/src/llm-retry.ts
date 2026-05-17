@@ -48,19 +48,58 @@ export async function llmJsonRetry<T extends z.ZodTypeAny>(
   let lastBadRaw: unknown = null;
   let attempts = 0;
 
+  const isTransient = (err: unknown): boolean => {
+    const msg = String((err as { message?: unknown } | null)?.message ?? err ?? '').toLowerCase();
+    return (
+      msg.includes('429') ||
+      msg.includes('rate') ||
+      msg.includes('503') ||
+      msg.includes('504') ||
+      msg.includes('econnreset') ||
+      msg.includes('etimedout') ||
+      msg.includes('timeout')
+    );
+  };
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
   const tryOnce = async (extraSystem: string, extraHuman: string): Promise<void> => {
     attempts += 1;
     const structuredLlm = withStructuredOutput(llm, schema, { name: schemaName });
     const sys = extraSystem ? `${systemPrompt}\n\n${extraSystem}` : systemPrompt;
     const human = extraHuman ? `${userPrompt}\n\n${extraHuman}` : userPrompt;
-    const result = await structuredLlm.invoke([new SystemMessage(sys), new HumanMessage(human)]);
-    if (result instanceof z.ZodError) {
-      error = result.message;
-      lastBadRaw = (result as unknown as { _raw?: unknown })._raw ?? null;
-    } else {
-      value = result;
-      error = null;
+
+    // Backoff on transient errors: 500ms, 1500ms, 4500ms with jitter.
+    // Does NOT consume a strategy slot — only retries the same attempt.
+    const backoffs = [500, 1500, 4500];
+    let lastTransientErr: unknown = null;
+    for (let i = 0; i <= backoffs.length; i++) {
+      try {
+        const result = await structuredLlm.invoke([
+          new SystemMessage(sys),
+          new HumanMessage(human),
+        ]);
+        if (result instanceof z.ZodError) {
+          error = result.message;
+          lastBadRaw = (result as unknown as { _raw?: unknown })._raw ?? null;
+        } else {
+          value = result;
+          error = null;
+        }
+        return;
+      } catch (err) {
+        if (!isTransient(err) || i === backoffs.length) {
+          throw err;
+        }
+        lastTransientErr = err;
+        const jitter = Math.floor(Math.random() * 250);
+        logger.warn(
+          { tag, err: String(err).slice(0, 200), backoff_ms: (backoffs[i] ?? 0) + jitter },
+          'llmJsonRetry transient error; backing off',
+        );
+        await sleep(backoffs[i]! + jitter);
+      }
     }
+    throw lastTransientErr;
   };
 
   // Attempt 1 — plain
