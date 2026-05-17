@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Board Game Builder</title>
+
+    <!--
+      CSP (Content Security Policy) meta tag.
+      Trade-off: We use 'unsafe-inline' for styles because Tailwind injects them at runtime.
+      For a production app, you'd extract Tailwind to a separate CSS file and remove 'unsafe-inline'.
+      connect-src includes VITE_BACKEND_URL (replaced at build time via Vite's SSR/plugin approach,
+      or set as a JS global constant loaded from env).
+      See src/config.ts for how the backend URL is sourced.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+    />
+
+    <meta name="description" content="Design playable board games using AI" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

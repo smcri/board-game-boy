@@ -1,0 +1,98 @@
+/* Minimal styling for the scaffold renderer. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #333;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 1em 0 0.5em 0;
+}
+
+button {
+  font-family: inherit;
+  font-size: 0.95em;
+}
+
+input, select {
+  font-family: inherit;
+  font-size: 0.95em;
+}
+
+/* Board grid styling */
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Player panels */
+.player-panel {
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.player-panel.current {
+  border-color: #007bff;
+  background-color: #e7f3ff;
+}
+
+/* Hand row */
+.hand {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.card {
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 8px;
+  background-color: #fff;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.card:hover {
+  transform: scale(1.05);
+}
+
+/* Action bar */
+.action-bar {
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.action-button {
+  padding: 5px 10px;
+  background-color: #ddd;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.action-button:hover {
+  background-color: #ccc;
+}
+
+.action-button.active {
+  background-color: #007bff;
+  color: white;
+}

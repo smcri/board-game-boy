@@ -1,0 +1,6 @@
+# Hugging Face Space configuration for the backend.
+sdk: docker
+app_port: 7860
+title: Board Game Boy Backend
+description: Agentic Board Game Builder backend — orchestrates the LLM build pipeline
+hardware: cpu-basic

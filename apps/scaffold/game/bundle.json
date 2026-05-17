@@ -1,0 +1,74 @@
+{
+  "bundle_id": "scaffold-dev-tictactoe",
+  "version": "0.1.0",
+  "dsl_version": "1.0",
+  "rules_dsl": {
+    "dsl_version": "1.0",
+    "metadata": {
+      "game_name": "Tic-Tac-Toe (Dev)",
+      "summary": "A simple dev test game",
+      "min_players": 2,
+      "max_players": 2
+    },
+    "entities": [
+      {
+        "id": "_turn",
+        "components": {
+          "Turn": {
+            "current_player": "player1"
+          }
+        }
+      },
+      {
+        "id": "player1",
+        "components": {
+          "Player": {
+            "seat": 0
+          }
+        }
+      },
+      {
+        "id": "player2",
+        "components": {
+          "Player": {
+            "seat": 1
+          }
+        }
+      }
+    ],
+    "actions": [
+      {
+        "id": "mark",
+        "name": "Mark",
+        "description": "Mark a square",
+        "effect": [
+          {
+            "verb": "phase",
+            "target": "next"
+          }
+        ]
+      }
+    ],
+    "win_conditions": [
+      {
+        "id": "demo",
+        "description": "Demo win condition",
+        "when": {
+          "op": "count_at_least",
+          "selector": { "kind": "self" },
+          "n": 1
+        }
+      }
+    ]
+  },
+  "asset_manifest": {
+    "entries": []
+  },
+  "metadata": {
+    "game_name": "Tic-Tac-Toe (Dev)",
+    "built_at": "2026-05-17T00:00:00Z",
+    "llm_provider": "dev",
+    "llm_model": "dev",
+    "mode": "development"
+  }
+}

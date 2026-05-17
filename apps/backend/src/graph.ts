@@ -1,0 +1,107 @@
+/**
+ * LangGraph StateGraph for the build orchestration.
+ * Nodes: classify → rules_agent → conflict_review → asset_agent → frontend_agent → assembler.
+ * See doc 05 for the full orchestrator spec.
+ * TODO: Integrate SqliteSaver from @langchain/langgraph/checkpoint-sqlite if available.
+ */
+import { StateGraph, Annotation } from '@langchain/langgraph';
+import { BuildState } from '@bgb/shared';
+import { BaseChatModel } from '@langchain/core/language_model/chat_model';
+import { classifyAgent } from './agents/classify.js';
+import { rulesAgent } from './agents/rules.js';
+import { conflictReview } from './agents/conflict_review.js';
+import { assetAgent } from './agents/asset.js';
+import { frontendAgent } from './agents/frontend.js';
+import { assembleBundle } from './assembler.js';
+import { logger } from './logger.js';
+
+/**
+ * Create the build graph with typed BuildState.
+ */
+export function createGraph(llm: BaseChatModel) {
+  const workflow = new StateGraph<BuildState>({
+    channels: {
+      bundle_id: { value: '' },
+      prompt: { value: '' },
+      mode: { value: '' },
+      custom_rules: { value: undefined },
+      llm_provider: { value: '' },
+      llm_model: { value: '' },
+      llm_api_key: { value: undefined },
+      search_provider: { value: undefined },
+      search_api_key: { value: undefined },
+      status: { value: 'classifying' },
+      rules_dsl: { value: undefined },
+      conflicts: { value: [] },
+      asset_manifest: { value: undefined },
+      user_decision: { value: undefined },
+      errors: { value: [] },
+    },
+  });
+
+  // Add nodes
+  workflow.addNode('classify', async (state) => {
+    logger.debug({ bundle_id: state.bundle_id }, 'Entering classify node');
+    return classifyAgent(state, llm);
+  });
+
+  workflow.addNode('rules_agent', async (state) => {
+    logger.debug({ bundle_id: state.bundle_id }, 'Entering rules_agent node');
+    return rulesAgent(state, llm);
+  });
+
+  workflow.addNode('conflict_review', async (state) => {
+    logger.debug({ bundle_id: state.bundle_id }, 'Entering conflict_review node');
+    return conflictReview(state);
+  });
+
+  workflow.addNode('asset_agent', async (state) => {
+    logger.debug({ bundle_id: state.bundle_id }, 'Entering asset_agent node');
+    return assetAgent(state, llm);
+  });
+
+  workflow.addNode('frontend_agent', async (state) => {
+    logger.debug({ bundle_id: state.bundle_id }, 'Entering frontend_agent node');
+    return frontendAgent(state, llm);
+  });
+
+  workflow.addNode('assembler', async (state) => {
+    logger.debug({ bundle_id: state.bundle_id }, 'Entering assembler node');
+    return assembleBundle(state);
+  });
+
+  // Add edges
+  workflow.addEdge('classify', 'rules_agent');
+  workflow.addEdge('rules_agent', 'conflict_review');
+  workflow.addEdge('conflict_review', 'asset_agent');
+  workflow.addEdge('asset_agent', 'frontend_agent');
+  workflow.addEdge('frontend_agent', 'assembler');
+
+  // TODO: Add conditional edge for interrupt on core_mechanic conflicts
+  // For MVP, conflict_review emits interrupt event but doesn't block graph execution
+
+  // Set entry and end nodes
+  workflow.setEntryPoint('classify');
+  workflow.setFinishPoint('assembler');
+
+  const graph = workflow.compile();
+  return graph;
+}
+
+/**
+ * Run a build graph to completion.
+ * Returns final state.
+ */
+export async function runBuild(initialState: BuildState, llm: BaseChatModel): Promise<BuildState> {
+  const graph = createGraph(llm);
+
+  let currentState = initialState;
+  try {
+    const finalState = await graph.invoke(currentState);
+    logger.info({ bundle_id: initialState.bundle_id }, 'Build completed');
+    return finalState as BuildState;
+  } catch (err) {
+    logger.error({ bundle_id: initialState.bundle_id, error: String(err) }, 'Build failed');
+    throw err;
+  }
+}

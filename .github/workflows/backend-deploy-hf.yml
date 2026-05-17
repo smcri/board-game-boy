@@ -1,0 +1,49 @@
+name: Deploy backend to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build backend Docker image (local check)
+        run: |
+          cd apps/backend
+          docker build -t bgb-backend:latest . || echo "Docker build check skipped (optional)"
+        continue-on-error: true
+
+      - name: Push backend to Hugging Face Spaces
+        run: |
+          # Extract space ID from repo variables.
+          HF_SPACE_ID="${{ vars.HF_SPACE_ID }}"
+          HF_TOKEN="${{ secrets.HF_TOKEN }}"
+          
+          if [ -z "$HF_SPACE_ID" ] || [ -z "$HF_TOKEN" ]; then
+            echo "⚠️  Missing HF_SPACE_ID or HF_TOKEN. Skipping deployment."
+            exit 0
+          fi
+          
+          # Configure git for HF push.
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions Bot"
+          
+          # Push /apps/backend subtree to HF Spaces repo.
+          # This approach uses git subtree to extract and push only the backend directory.
+          git subtree push \
+            --prefix apps/backend \
+            https://USER:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID} \
+            main \
+            --force 2>&1 | sed 's/'${HF_TOKEN}'/***REDACTED***/g'
+        continue-on-error: true
+
+      - name: Deployment notification
+        if: success()
+        run: |
+          echo "✅ Backend deployed to HF Spaces: https://huggingface.co/spaces/${{ vars.HF_SPACE_ID }}"

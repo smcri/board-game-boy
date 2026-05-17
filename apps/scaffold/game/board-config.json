@@ -1,0 +1,14 @@
+{
+  "kind": "grid_square",
+  "nodes": [
+    { "id": "square_0_0", "coords": { "file": 0, "rank": 0 } },
+    { "id": "square_0_1", "coords": { "file": 0, "rank": 1 } },
+    { "id": "square_0_2", "coords": { "file": 0, "rank": 2 } },
+    { "id": "square_1_0", "coords": { "file": 1, "rank": 0 } },
+    { "id": "square_1_1", "coords": { "file": 1, "rank": 1 } },
+    { "id": "square_1_2", "coords": { "file": 1, "rank": 2 } },
+    { "id": "square_2_0", "coords": { "file": 2, "rank": 0 } },
+    { "id": "square_2_1", "coords": { "file": 2, "rank": 1 } },
+    { "id": "square_2_2", "coords": { "file": 2, "rank": 2 } }
+  ]
+}

@@ -1,0 +1,27 @@
+# DigitalOcean App Platform specification for the backend.
+name: bgb-backend
+services:
+  - name: backend
+    github:
+      repo: YOUR_GITHUB_REPO
+      branch: main
+      deploy_on_push: true
+    build_command: pnpm install && pnpm --filter @bgb/backend build
+    run_command: node apps/backend/dist/index.js
+    http_port: 7860
+    envs:
+      - key: PORT
+        value: "7860"
+      - key: DATA_DIR
+        value: /var/data
+      - key: BUNDLES_DIR
+        value: /var/data/bundles
+      - key: LOG_LEVEL
+        value: info
+    volumes:
+      - name: data
+        mount_path: /var/data
+volumes:
+  - name: data
+    filesystem_slug: ext4
+    size_gib: 10

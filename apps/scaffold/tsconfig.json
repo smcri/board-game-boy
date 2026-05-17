@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@bgb/shared": ["../../packages/shared/src"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "../../packages/shared" }]
+}

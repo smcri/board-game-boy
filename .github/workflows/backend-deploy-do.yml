@@ -1,0 +1,50 @@
+name: Deploy backend to DigitalOcean App Platform
+
+# MIGRATION NOTES:
+# This workflow is for deploying the backend to DigitalOcean App Platform.
+# It is guarded by a feature flag and disabled by default.
+#
+# To enable, set `vars.ENABLE_DO_DEPLOY = 'true'` in repo variables.
+# Or remove the `if` condition on the jobs and change `on: workflow_dispatch:` to `on: push:` to enable on every push.
+#
+# Prerequisites:
+# 1. Create a DigitalOcean App in the console.
+# 2. Generate a Personal Access Token (PAT) in DigitalOcean account settings.
+# 3. Add `secrets.DIGITALOCEAN_TOKEN` to GitHub repo secrets.
+# 4. Add `vars.DO_APP_ID` to GitHub repo variables with your app UUID.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    # Uncomment to enable automatic deploy on every main push:
+    # if: ${{ vars.ENABLE_DO_DEPLOY == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check feature flag
+        id: check-flag
+        run: |
+          if [ "${{ vars.ENABLE_DO_DEPLOY }}" != "true" ]; then
+            echo "🔒 DO deploy is disabled. Set vars.ENABLE_DO_DEPLOY = 'true' to enable."
+            exit 0
+          fi
+          echo "enabled=true" >> $GITHUB_OUTPUT
+
+      - uses: digitalocean/app_action@v1
+        if: steps.check-flag.outputs.enabled == 'true'
+        with:
+          token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          app_id: ${{ vars.DO_APP_ID }}
+          images: |
+            [
+              {
+                "name": "backend",
+                "repository": "bgb-backend",
+                "tag": "latest",
+                "dockerfile_path": "apps/backend/Dockerfile"
+              }
+            ]
