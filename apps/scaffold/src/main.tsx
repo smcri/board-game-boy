@@ -7,6 +7,57 @@ import { Bundle, BoardConfig } from '@bgb/shared';
 import { mount } from './mount.js';
 
 /**
+ * Derive a BoardConfig from the bundle's DSL entities.
+ * Looks for an entity with a BoardNode component and auto-generates grid nodes.
+ */
+function deriveBoardConfig(bundle: Bundle): BoardConfig {
+  const entities = bundle.rules_dsl.entities;
+
+  // Find the board entity
+  const boardEntity = entities.find((e) => e.components['BoardNode']);
+  const boardNode = boardEntity?.components['BoardNode'] as Record<string, unknown> | undefined;
+  const kind = (boardNode?.kind as string) ?? 'grid_square';
+
+  if (kind === 'grid_square') {
+    // Default 8×8 grid (Chess, Checkers, etc.)
+    const cols = (boardNode?.cols as number) ?? 8;
+    const rows = (boardNode?.rows as number) ?? 8;
+    const nodes = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        nodes.push({ id: `sq_${c}_${r}`, coords: { file: c, rank: r } });
+      }
+    }
+    return { kind: 'grid_square', nodes };
+  }
+
+  if (kind === 'track') {
+    // Default 100-space track (Snakes & Ladders, etc.)
+    const spaces = (boardNode?.spaces as number) ?? 100;
+    const nodes = Array.from({ length: spaces }, (_, i) => ({
+      id: `space_${i}`,
+      index: i,
+    }));
+    return { kind: 'track', nodes };
+  }
+
+  if (kind === 'grid_hex') {
+    // Default 5-radius hex grid
+    const radius = (boardNode?.radius as number) ?? 5;
+    const nodes = [];
+    for (let q = -radius; q <= radius; q++) {
+      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+        nodes.push({ id: `hex_${q}_${r}`, q, r });
+      }
+    }
+    return { kind: 'grid_hex', nodes };
+  }
+
+  // Fallback: empty grid_square
+  return { kind: 'grid_square', nodes: [] };
+}
+
+/**
  * Boot the game with bundle data.
  * Called by the backend or dev mode.
  */
@@ -33,8 +84,8 @@ async function boot(
     }
     boardConfig = boardResult.data;
   } else {
-    // Use a default empty board config
-    boardConfig = { kind: 'grid_square', nodes: [] };
+    // Derive board config from the bundle's DSL entities.
+    boardConfig = deriveBoardConfig(bundleResult.data);
   }
 
   mount(rootEl, bundleResult.data, boardConfig);
