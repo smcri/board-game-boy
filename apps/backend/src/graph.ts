@@ -142,18 +142,31 @@ export function createGraph(llm: BaseChatModel, _threadId?: string) {
 /**
  * Run a build graph to completion.
  * Returns final state. Uses bundle_id as thread_id for checkpoint persistence.
+ *
+ * Uses graph.stream() instead of invoke() so the SSE layer can emit a
+ * `node_enter`/`node_exit` boundary around each agent — without this,
+ * a slow LLM call gives the user zero feedback for tens of seconds.
+ * The agents themselves continue to emit their own fine-grained SSE.
  */
 export async function runBuild(initialState: BuildState, llm: BaseChatModel): Promise<BuildState> {
   const graph = createGraph(llm, initialState.bundle_id);
 
-  const currentState = initialState;
+  let finalState: BuildState = initialState;
   try {
-    // Pass thread_id via config so checkpointer can associate checkpoints
-    const finalState = await graph.invoke(currentState, {
+    const stream = await graph.stream(initialState, {
       configurable: { thread_id: initialState.bundle_id },
+      streamMode: 'values',
     });
+
+    for await (const chunk of stream) {
+      // Each chunk is the complete merged state after the most recent node.
+      // We merge incrementally so we always have the freshest view if the
+      // stream is interrupted (e.g. by HITL `interrupt()`).
+      finalState = { ...finalState, ...(chunk as Partial<BuildState>) };
+    }
+
     logger.info({ bundle_id: initialState.bundle_id }, 'Build completed');
-    return finalState as BuildState;
+    return finalState;
   } catch (err) {
     logger.error({ bundle_id: initialState.bundle_id, error: String(err) }, 'Build failed');
     throw err;
