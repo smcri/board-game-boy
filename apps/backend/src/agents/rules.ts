@@ -237,43 +237,83 @@ ${verbList.join(', ')}
 - Every conflict (if any) MUST have \`id\`, \`rule\`, \`sources\` (array), and \`confidence\` (number).
 - If you are unsure about a specific rule, ADD it to \`conflicts\` rather than inventing.
 
-## CONCRETE EXAMPLE (Tic-Tac-Toe — copy this shape exactly)
+## CONCRETE EXAMPLE (Snakes & Ladders — copy this shape exactly)
 
-NOTE: The values below (e.g. \`0\`, \`"X"\`) are literal example values, NOT template
-placeholders. Do not emit strings like \`"{row}"\` or \`"{current_player}"\` —
-emit concrete numbers and string literals appropriate for the game you are
-modelling. For your game, paths may include integer cell indices or
-named player ids, but never wrapped-in-braces template variables.
+NOTE: The values below (e.g. \`1\`, \`"player1"\`, \`6\`) are literal example values,
+NOT template placeholders. Do not emit strings like \`"{die_roll}"\` or
+\`"{current_player}"\` — emit concrete numbers and string literals appropriate
+for the game you are modelling. Paths may include integer indices or named
+ids, but never wrapped-in-braces template variables.
 
 
 {
   "dsl_version": "1.0",
-  "metadata": { "game_name": "Tic-Tac-Toe", "summary": "Two players place X and O on a 3x3 grid; first to three in a row wins.", "min_players": 2, "max_players": 2 },
+  "metadata": {
+    "game_name": "Snakes and Ladders",
+    "summary": "Players roll a die to advance a token across 100 numbered squares. Landing on the bottom of a ladder climbs up; landing on a snake's head slides down. First to reach square 100 wins.",
+    "min_players": 2,
+    "max_players": 4
+  },
   "entities": [
-    { "id": "board", "components": { "Identity": { "kind": "board" }, "BoardNode": { "kind": "grid_square" } } },
+    { "id": "board", "components": { "Identity": { "kind": "board" }, "BoardNode": { "kind": "track_square" } } },
+    { "id": "die", "components": { "Identity": { "kind": "die" } } },
     { "id": "player1", "components": { "Identity": { "kind": "player" }, "Player": { "seat": 1 } } },
-    { "id": "player2", "components": { "Identity": { "kind": "player" }, "Player": { "seat": 2 } } }
+    { "id": "player2", "components": { "Identity": { "kind": "player" }, "Player": { "seat": 2 } } },
+    { "id": "token_p1", "components": { "Identity": { "kind": "token" } } },
+    { "id": "token_p2", "components": { "Identity": { "kind": "token" } } }
   ],
   "actions": [
     {
-      "id": "place_mark",
-      "name": "Place a mark",
+      "id": "roll_and_move",
+      "name": "Roll the die and advance your token",
       "actor": "player",
       "preconditions": [
-        { "kind": "phase_is", "phase": "main" }
+        { "kind": "phase_is", "phase": "main" },
+        { "kind": "is_current_player" }
       ],
       "effect": [
-        { "op": "set", "path": "board.cells.0.0", "value": "X" }
+        { "op": "random", "path": "state.last_roll", "kind": "die", "sides": 6 },
+        { "op": "inc", "path": "tokens.player1.square", "by": 1 }
+      ]
+    },
+    {
+      "id": "apply_ladder",
+      "name": "Climb a ladder",
+      "actor": "system",
+      "preconditions": [
+        { "kind": "expression", "expr": "tokens.player1.square == 4" }
+      ],
+      "effect": [
+        { "op": "set", "path": "tokens.player1.square", "value": 14 }
+      ]
+    },
+    {
+      "id": "apply_snake",
+      "name": "Slide down a snake",
+      "actor": "system",
+      "preconditions": [
+        { "kind": "expression", "expr": "tokens.player1.square == 17" }
+      ],
+      "effect": [
+        { "op": "set", "path": "tokens.player1.square", "value": 7 }
       ]
     }
   ],
   "win_conditions": [
     {
-      "id": "three_in_a_row",
-      "description": "Place three marks in a row, column, or diagonal",
-      "when": { "kind": "expression", "expr": "any_line_complete(board, current_player_mark)" }
+      "id": "reach_100",
+      "description": "First player whose token reaches or exceeds square 100 wins",
+      "when": { "kind": "expression", "expr": "tokens.player1.square >= 100 or tokens.player2.square >= 100" }
     }
   ],
-  "conflicts": []
+  "conflicts": [
+    {
+      "id": "exact_landing_rule",
+      "rule": "Some rulesets require landing on 100 by exact die roll; overshoot bounces back. Others let any roll >= 100 win.",
+      "sources": ["wikipedia:Snakes_and_Ladders"],
+      "confidence": 0.7,
+      "severity": "core_mechanic"
+    }
+  ]
 }`;
 }
