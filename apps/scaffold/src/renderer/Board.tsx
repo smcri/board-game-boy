@@ -17,6 +17,7 @@ interface BoardProps {
   boardConfig: BoardConfig;
   currentPlayer: EntityId | undefined;
   assetManifest?: Record<string, unknown>;
+  storeVersion?: string; // opaque string that changes on every state update — forces re-render
 }
 
 /**
@@ -27,6 +28,7 @@ export const Board: React.FC<BoardProps> = ({
   boardConfig,
   currentPlayer,
   assetManifest,
+  storeVersion: _storeVersion, // consumed only to trigger re-render; not passed to children
 }) => {
   const boardNodes = store.getEntities('BoardNode');
 

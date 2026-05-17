@@ -44,6 +44,7 @@ export const App: React.FC<AppProps> = ({ engine, bundle, boardConfig }) => {
         store={store}
         boardConfig={boardConfig}
         currentPlayer={gameState.currentPlayer}
+        storeVersion={JSON.stringify(gameState.entities)}
       />
 
       <PlayerPanel store={store} currentPlayer={gameState.currentPlayer} />

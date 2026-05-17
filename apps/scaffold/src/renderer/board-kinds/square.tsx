@@ -15,7 +15,8 @@ interface SquareBoardProps {
   assetManifest?: Record<string, unknown>;
 }
 
-const SQUARE_SIZE = 40;
+const SQUARE_SIZE = 48;
+const PADDING = 4;
 
 export const SquareBoard: React.FC<SquareBoardProps> = ({
   store,
@@ -25,75 +26,102 @@ export const SquareBoard: React.FC<SquareBoardProps> = ({
   const boardNodes = store.getEntities('BoardNode');
   const positions = store.getEntities('Position');
 
+  // Compute grid dimensions from nodes
+  let maxFile = 0; let maxRank = 0;
+  for (const nodeId of boardNodes) {
+    const node = store.getComponent(nodeId, 'BoardNode') as Record<string, unknown> | undefined;
+    const coords = node?.coords as Record<string, number> | undefined;
+    if (coords) {
+      maxFile = Math.max(maxFile, (coords.file ?? 0));
+      maxRank = Math.max(maxRank, (coords.rank ?? 0));
+    }
+  }
+  const cols = maxFile + 1;
+  const rows = maxRank + 1;
+  const svgW = cols * SQUARE_SIZE + PADDING * 2;
+  const svgH = rows * SQUARE_SIZE + PADDING * 2;
+
+  // Build map: nodeId → pixel center
+  const nodeCoords = new Map<string, { cx: number; cy: number }>();
+  for (const nodeId of boardNodes) {
+    const node = store.getComponent(nodeId, 'BoardNode') as Record<string, unknown> | undefined;
+    const coords = node?.coords as Record<string, number> | undefined;
+    if (coords) {
+      const file = coords.file ?? 0;
+      const rank = coords.rank ?? 0;
+      nodeCoords.set(nodeId, {
+        cx: PADDING + file * SQUARE_SIZE + SQUARE_SIZE / 2,
+        cy: PADDING + rank * SQUARE_SIZE + SQUARE_SIZE / 2,
+      });
+    }
+  }
+
   return (
     <svg
-      width={400}
-      height={400}
-      style={{ border: '1px solid #ccc', backgroundColor: '#f9f9f9' }}
+      width={svgW}
+      height={svgH}
+      style={{ border: '1px solid #888', display: 'block' }}
       role="img"
       aria-label="square-board"
     >
-      <g>
-        {boardNodes.map((nodeId) => {
-          const node = store.getComponent(nodeId, 'BoardNode');
-          const pos = node ? (node as Record<string, unknown>).coords : undefined;
+      {/* Board squares with checkerboard pattern */}
+      {boardNodes.map((nodeId) => {
+        const node = store.getComponent(nodeId, 'BoardNode') as Record<string, unknown> | undefined;
+        const coords = node?.coords as Record<string, number> | undefined;
+        if (!coords) return null;
+        const file = coords.file ?? 0;
+        const rank = coords.rank ?? 0;
+        const x = PADDING + file * SQUARE_SIZE;
+        const y = PADDING + rank * SQUARE_SIZE;
+        const isLight = (file + rank) % 2 === 0;
+        return (
+          <rect
+            key={nodeId}
+            x={x} y={y}
+            width={SQUARE_SIZE} height={SQUARE_SIZE}
+            fill={isLight ? '#f0d9b5' : '#b58863'}
+            stroke="#555" strokeWidth={0.5}
+          />
+        );
+      })}
 
-          if (!pos) return null;
+      {/* Tokens / pieces */}
+      {positions.map((entityId) => {
+        const position = store.getComponent(entityId, 'Position') as Record<string, unknown> | undefined;
+        if (!position || position['on'] !== 'board') return null;
+        const nodeId = position['node'] as string | undefined;
+        if (!nodeId) return null;
+        const center = nodeCoords.get(nodeId);
+        if (!center) return null;
 
-          const file = (pos as Record<string, unknown>).file as number;
-          const rank = (pos as Record<string, unknown>).rank as number;
-          const x = file * SQUARE_SIZE + 10;
-          const y = rank * SQUARE_SIZE + 10;
+        const token = store.getComponent(entityId, 'Token') as Record<string, unknown> | undefined;
+        const identity = store.getComponent(entityId, 'Identity') as Record<string, unknown> | undefined;
+        const owner = store.getComponent(entityId, 'Owner') as Record<string, unknown> | undefined;
+        const label = (token?.kind as string) ?? (identity?.name as string) ?? entityId;
+        const isVisible = !currentPlayer || isVisibleToCurrentPlayer(store, entityId, currentPlayer);
+        if (!isVisible) return null;
 
-          return (
-            <rect
-              key={nodeId}
-              x={x}
-              y={y}
-              width={SQUARE_SIZE}
-              height={SQUARE_SIZE}
+        // Color by owner
+        const ownerPlayer = owner?.player_entity as string | undefined;
+        const isCurrentOwner = ownerPlayer === currentPlayer;
+        const fill = isCurrentOwner ? '#2563eb' : '#dc2626';
+
+        return (
+          <g key={entityId}>
+            <circle cx={center.cx} cy={center.cy} r={SQUARE_SIZE / 2 - 4} fill={fill} stroke="white" strokeWidth={2} />
+            <text
+              x={center.cx} y={center.cy + 4}
+              textAnchor="middle"
+              fontSize={10}
               fill="white"
-              stroke="#ccc"
-              strokeWidth={1}
-            />
-          );
-        })}
-
-        {/* Render positioned entities */}
-        {positions.map((entityId) => {
-          if (!currentPlayer || !isVisibleToCurrentPlayer(store, entityId, currentPlayer)) {
-            return null;
-          }
-
-          const position = store.getComponent(entityId, 'Position');
-          if (!position || (position as Record<string, unknown>).on !== 'board') {
-            return null;
-          }
-
-          const nodeId = (position as Record<string, unknown>).node as EntityId | undefined;
-          if (!nodeId) return null;
-
-          const node = store.getComponent(nodeId, 'BoardNode');
-          const pos = node ? (node as Record<string, unknown>).coords : undefined;
-
-          if (!pos) return null;
-
-          const file = (pos as Record<string, unknown>).file as number;
-          const rank = (pos as Record<string, unknown>).rank as number;
-          const x = file * SQUARE_SIZE + 10;
-          const y = rank * SQUARE_SIZE + 10;
-
-          return (
-            <circle
-              key={entityId}
-              cx={x + SQUARE_SIZE / 2}
-              cy={y + SQUARE_SIZE / 2}
-              r={8}
-              fill="#007bff"
-            />
-          );
-        })}
-      </g>
+              fontWeight="bold"
+              style={{ userSelect: 'none', pointerEvents: 'none' }}
+            >
+              {label.slice(0, 3).toUpperCase()}
+            </text>
+          </g>
+        );
+      })}
     </svg>
   );
 };
