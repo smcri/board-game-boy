@@ -21,6 +21,10 @@ export const Bundle = z.object({
   asset_manifest: AssetManifest,
   conflicts_resolved: z.array(Conflict).default([]),
   conflicts_unresolved_non_blocking: z.array(Conflict).default([]),
+  // Build-time warnings (non-fatal errors collected during the run). Empty
+  // on a clean build. Surfaced in the runtime UI so players see what didn't
+  // work even when the build itself completed.
+  build_warnings: z.array(z.string()).default([]).optional(),
   metadata: BundleMetadata,
 });
 export type Bundle = z.infer<typeof Bundle>;

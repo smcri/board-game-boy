@@ -50,6 +50,7 @@ export async function assembleBundle(state: BuildState): Promise<Partial<BuildSt
       dsl_version: '1.0',
       rules_dsl: state.rules_dsl,
       asset_manifest: state.asset_manifest,
+      build_warnings: Array.from(new Set(state.errors ?? [])),
       conflicts_resolved: (state.conflicts || []).filter((c) => c.resolution),
       conflicts_unresolved_non_blocking: (state.conflicts || []).filter((c) => !c.resolution && c.severity !== 'core_mechanic'),
       metadata: {
