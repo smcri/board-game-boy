@@ -132,7 +132,7 @@ export class SqliteSaver {
     }
 
     const stateStr = (result.rows[0] as Record<string, unknown>).state as string;
-    return JSON.parse(stateStr);
+    return safeParseCheckpoint(stateStr, threadId);
   }
 
   /**
@@ -151,9 +151,29 @@ export class SqliteSaver {
       args: [threadId] as any,
     });
 
-    return result.rows.map((row) => {
-      const stateStr = (row as Record<string, unknown>).state as string;
-      return JSON.parse(stateStr);
-    });
+    return result.rows
+      .map((row) => {
+        const stateStr = (row as Record<string, unknown>).state as string;
+        return safeParseCheckpoint(stateStr, threadId);
+      })
+      .filter((v): v is unknown => v !== undefined);
+  }
+}
+
+/**
+ * Defence-in-depth JSON.parse for persisted checkpoint state. Logs and
+ * returns undefined on corruption rather than crashing the build process —
+ * a corrupted row from an aborted write should not take down the whole
+ * service. Callers must treat undefined as "no usable checkpoint".
+ */
+function safeParseCheckpoint(stateStr: string, threadId: string): unknown {
+  try {
+    return JSON.parse(stateStr);
+  } catch (err) {
+    logger.warn(
+      { thread_id: threadId, error: String(err), preview: stateStr.slice(0, 80) },
+      'Failed to parse checkpoint row; ignoring',
+    );
+    return undefined;
   }
 }
