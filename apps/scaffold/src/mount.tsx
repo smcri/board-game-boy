@@ -40,22 +40,31 @@ export function mount(
 
   // Seed the ECS store with board node entities from boardConfig.
   // The renderers read BoardNode entities from the store, not from boardConfig directly.
+  // Only seed nodes that aren't already in the store (LLM may have generated them explicitly).
   const store = engine.getStore();
   const validConfig = boardResult.data;
+  const existingBoardNodes = store.getEntities('BoardNode');
+
   if (validConfig.kind === 'grid_square') {
     for (const node of (validConfig as { kind: 'grid_square'; nodes: Array<{ id: string; coords: { file: number; rank: number } }> }).nodes) {
-      store.setComponent(node.id, 'BoardNode', { kind: 'grid_square', coords: node.coords });
-      store.setComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
+      if (!existingBoardNodes.includes(node.id)) {
+        store.addComponent(node.id, 'BoardNode', { kind: 'grid_square', coords: node.coords });
+        store.addComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
+      }
     }
   } else if (validConfig.kind === 'track') {
     for (const node of (validConfig as { kind: 'track'; nodes: Array<{ id: string; index: number }> }).nodes) {
-      store.setComponent(node.id, 'BoardNode', { kind: 'track', index: node.index });
-      store.setComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
+      if (!existingBoardNodes.includes(node.id)) {
+        store.addComponent(node.id, 'BoardNode', { kind: 'track', index: node.index });
+        store.addComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
+      }
     }
   } else if (validConfig.kind === 'grid_hex') {
     for (const node of (validConfig as { kind: 'grid_hex'; nodes: Array<{ id: string; q: number; r: number }> }).nodes) {
-      store.setComponent(node.id, 'BoardNode', { kind: 'grid_hex', q: node.q, r: node.r });
-      store.setComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
+      if (!existingBoardNodes.includes(node.id)) {
+        store.addComponent(node.id, 'BoardNode', { kind: 'grid_hex', q: node.q, r: node.r });
+        store.addComponent(node.id, 'Identity', { name: node.id, kind: 'board_node' });
+      }
     }
   }
 

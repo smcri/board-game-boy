@@ -224,6 +224,11 @@ Every field marked MANDATORY below MUST be present and non-empty in your output.
 - \`metadata.min_players\` / \`max_players\`: MANDATORY. MUST be positive integers.
 - \`entities\`: MANDATORY. MUST contain at least 1 entity. Each entity MUST have a string \`id\` and an OBJECT \`components\` (NOT an array).
 - \`entities[*].components.Identity\`: MANDATORY on every entity. MUST include BOTH \`name\` (string) AND \`kind\` (string). **YOU MUST NOT omit \`name\`.**
+- **BOARD NODES ARE EXPLICIT ENTITIES**: You MUST generate individual board node entities — NOT one single "board" entity.
+  - Track games (Snakes & Ladders, Ludo): generate \`square_0\`, \`square_1\`, ..., \`square_N\` — each with \`BoardNode: { kind: "track", index: N }\`
+  - Grid games (Chess, Checkers, Tic-Tac-Toe): generate \`sq_0_0\`, \`sq_1_0\`, ..., \`sq_C_R\` — each with \`BoardNode: { kind: "grid_square", coords: { file: C, rank: R } }\`
+  - The renderer reads these node entities from the store. Without them, the board renders as blank.
+  - Token \`Position.node\` MUST reference an existing board node entity id (e.g. \`"square_0"\`, \`"sq_0_0"\`).
 - \`actions\`: MANDATORY. MUST contain at least 1 action. Each action MUST have \`id\` (string) and \`effect\` (array with ≥1 items).
 - \`actions[*].preconditions[*].op\`: MANDATORY discriminator. MUST be one of the ALLOWED CONDITION OPS. **Do NOT use "kind" as the field name.**
 - \`actions[*].effect[*].verb\`: MANDATORY discriminator. MUST be one of the ALLOWED EFFECT VERBS. **Do NOT use "op" as the field name for effects.**

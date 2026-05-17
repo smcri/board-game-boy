@@ -33,13 +33,17 @@ export const EXAMPLE_RULES_DSL: RulesDsl = {
     max_players: 4,
   },
   entities: [
-    {
-      id: 'board',
-      components: {
-        Identity: { name: 'Main track', kind: 'board' },
-        BoardNode: { kind: 'track' },
-      },
-    },
+    // ── CRITICAL PATTERN: Generate explicit board node entities ──────────────
+    // For a track game, create square_0 through square_N as individual entities.
+    // For a grid game (grid_square), create sq_C_R entities (col, row).
+    // Each node entity MUST have: BoardNode (with kind + index/coords) + Identity.
+    // Token Position.node MUST reference the node entity id (e.g. 'square_0').
+    // ─────────────────────────────────────────────────────────────────────────
+    { id: 'square_0',   components: { Identity: { name: 'Square 0',   kind: 'board_node' }, BoardNode: { kind: 'track', index: 0   } } },
+    { id: 'square_1',   components: { Identity: { name: 'Square 1',   kind: 'board_node' }, BoardNode: { kind: 'track', index: 1   } } },
+    { id: 'square_2',   components: { Identity: { name: 'Square 2',   kind: 'board_node' }, BoardNode: { kind: 'track', index: 2   } } },
+    // ... generate square_3 through square_99 following the same pattern ...
+    { id: 'square_100', components: { Identity: { name: 'Square 100', kind: 'board_node' }, BoardNode: { kind: 'track', index: 100 } } },
     {
       id: 'turn_tracker',
       components: {
