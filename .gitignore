@@ -1,0 +1,69 @@
+# Node / pnpm
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+.output/
+.vite/
+.turbo/
+.cache/
+.tsbuildinfo
+*.tsbuildinfo
+.eslintcache
+
+# Test / coverage
+coverage/
+.nyc_output/
+.vitest/
+.vitest-cache/
+
+# Generated bundles (Phase 1 output; never check these in)
+bundles/
+
+# Local databases (LangGraph checkpoints + fetch cache; never check these in)
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+data/
+.data/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Logs
+logs/
+*.log
+
+# pnpm
+.pnp.*
+.yarn/
+
+# Misc
+*.tgz
+*.tar.gz
+
+# Reference inputs from the planning session (kept local only)
+*.pdf
+uas_m1_platform_control_analysis.md
+threat-models/
