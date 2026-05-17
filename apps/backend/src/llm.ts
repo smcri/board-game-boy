@@ -177,12 +177,30 @@ function wrapWithJsonFallback(native: any, llm: BaseChatModel, schema: unknown) 
  * JSON.parse — does not validate.
  */
 function extractJsonBlock(text: string): string {
+  // 1. Prefer fenced code blocks if present.
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenceMatch && fenceMatch[1] !== undefined) return fenceMatch[1].trim();
-  const braceStart = text.indexOf('{');
-  const braceEnd = text.lastIndexOf('}');
-  if (braceStart >= 0 && braceEnd > braceStart) {
-    return text.slice(braceStart, braceEnd + 1);
+  // 2. Bracket-depth scanner that respects strings + escapes. Finds the first
+  //    balanced `{...}` block and returns it, ignoring any prose before/after.
+  const start = text.indexOf('{');
+  if (start < 0) return text.trim();
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
   }
+  // 3. Fall back to the last-`}` heuristic if scan never balanced.
+  const lastBrace = text.lastIndexOf('}');
+  if (lastBrace > start) return text.slice(start, lastBrace + 1);
   return text.trim();
 }
