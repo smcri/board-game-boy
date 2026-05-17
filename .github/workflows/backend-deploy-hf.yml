@@ -32,7 +32,10 @@ jobs:
 
           # Add HF remote — the whole repo is pushed because the root Dockerfile
           # orchestrates the full monorepo build (shared + backend + scaffold).
-          git remote add hf "https://HF_USER:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID}"
+          # HF git URL format: https://<username>:<token>@huggingface.co/spaces/<owner>/<space>
+          # Extract username from HF_SPACE_ID (e.g. "smcri/board-game-builder" -> "smcri")
+          HF_USERNAME="${HF_SPACE_ID%%/*}"
+          git remote add hf "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID}"
 
           # Force-push main to the HF Space's main branch.
           # HF Spaces (Docker SDK) will detect the Dockerfile at root and build automatically.
