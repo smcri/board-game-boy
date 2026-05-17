@@ -44,7 +44,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({ store, currentPlayer }
             }}
           >
             <h4>
-              Player {(player as Record<string, unknown>)?.seat ?? '?'}
+              Player {String((player as Record<string, unknown>)?.seat ?? '?')}
               {isCurrent && ' (Current)'}
             </h4>
             {counters.length > 0 ? (
@@ -55,7 +55,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({ store, currentPlayer }
                   const value = (counter as Record<string, unknown>)?.value ?? 0;
                   return (
                     <li key={counterId}>
-                      {key}: {value}
+                      {String(key)}: {String(value)}
                     </li>
                   );
                 })}

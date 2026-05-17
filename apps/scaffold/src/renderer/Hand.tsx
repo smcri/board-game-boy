@@ -57,7 +57,7 @@ export const Hand: React.FC<HandProps> = ({ store, currentPlayer }) => {
                 }}
                 title={cardId}
               >
-                <div style={{ fontSize: '0.9em', fontWeight: 'bold' }}>{template}</div>
+                <div style={{ fontSize: '0.9em', fontWeight: 'bold' }}>{String(template)}</div>
                 <div style={{ fontSize: '0.8em', color: '#666' }}>
                   {cardId.slice(0, 4)}...
                 </div>

@@ -10,7 +10,7 @@ const BUFFER_SIZE = 1000;
 class SseEmitter extends EventEmitter {
   private buffer: SseEvent[] = [];
 
-  emit(event: string, ...args: unknown[]): boolean {
+  override emit(event: string, ...args: unknown[]): boolean {
     if (event === 'event' && args[0]) {
       const sseEvent = args[0] as SseEvent;
       // Maintain ring buffer

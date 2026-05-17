@@ -41,6 +41,7 @@ describe('Renderer', () => {
         max_players: 2,
       },
       entities,
+      conflicts: [],
       actions: [
         {
           id: 'mark',
@@ -74,7 +75,9 @@ describe('Renderer', () => {
       version: '0.1.0',
       dsl_version: '1.0',
       rules_dsl: rules,
-      asset_manifest: { entries: [] },
+      asset_manifest: { entries: [], palette: [] },
+      conflicts_resolved: [],
+      conflicts_unresolved_non_blocking: [],
       metadata: {
         game_name: 'Tic-Tac-Toe',
         built_at: new Date().toISOString(),

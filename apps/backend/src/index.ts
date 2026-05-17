@@ -18,7 +18,7 @@ async function main() {
     mkdirSync(config.BUNDLES_DIR, { recursive: true });
 
     // Initialize database
-    initDb();
+    await initDb();
 
     // Build Fastify server
     const fastify = await buildServer();

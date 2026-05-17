@@ -1,10 +1,12 @@
 /**
- * LLM provider abstraction using LangChain's initChatModel.
+ * LLM provider abstraction using per-provider classes.
  * Supports openai, anthropic, ollama, groq.
  * Each model exposes withStructuredOutput(schema, { name }).
  */
-import { initChatModel } from '@langchain/core/language_model/chat_model';
-import { BaseChatModel } from '@langchain/core/language_model/chat_model';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatAnthropic } from '@langchain/anthropic';
+import { ChatOllama } from '@langchain/community/chat_models/ollama';
 import { LlmProvider, PROVIDER_NEEDS_KEY } from '@bgb/shared';
 import { logger } from './logger.js';
 import { config } from './config.js';
@@ -21,31 +23,32 @@ export async function makeLlm(provider: LlmProvider, model: string, apiKey?: str
 
   logger.debug({ provider, model }, 'Creating LLM');
 
-  let config_overrides: Record<string, unknown> = {};
-
   switch (provider) {
     case 'openai':
-      if (apiKey) config_overrides.apiKey = apiKey;
-      break;
+      return new ChatOpenAI({
+        modelName: model,
+        apiKey: apiKey || process.env.OPENAI_API_KEY,
+      });
+
     case 'anthropic':
-      if (apiKey) config_overrides.apiKey = apiKey;
-      break;
+      return new ChatAnthropic({
+        modelName: model,
+        apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
+      });
+
     case 'ollama':
-      // Ollama runs locally; use OLLAMA_BASE_URL from env
-      config_overrides.baseUrl = config.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
-      break;
+      return new ChatOllama({
+        model,
+        baseUrl: config.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
+      });
+
     case 'groq':
-      if (apiKey) config_overrides.apiKey = apiKey;
-      // TODO: @langchain/groq may not be available; verify on install
-      break;
+      throw new Error('Groq provider not yet wired — install @langchain/groq');
+
+    default:
+      const _exhaustive: never = provider;
+      throw new Error(`Unknown provider: ${_exhaustive}`);
   }
-
-  const llm = await initChatModel(model, {
-    modelProvider: provider,
-    ...config_overrides,
-  });
-
-  return llm;
 }
 
 /**

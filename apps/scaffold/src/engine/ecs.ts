@@ -8,6 +8,7 @@ import {
   EntityDecl,
   ComponentName,
   COMPONENT_REGISTRY,
+  type ComponentExpr,
 } from '@bgb/shared';
 
 export type ComponentData = Record<string, unknown>;
@@ -60,11 +61,11 @@ export class ComponentStore {
    * Get all entities matching a component expression.
    */
   query(expr: ComponentExpr): EntityId[] {
-    if ('has' in expr) {
-      return this.getEntities(expr.has as ComponentName);
+    if (typeof expr === 'object' && expr !== null && 'has' in expr) {
+      return this.getEntities((expr as Record<string, unknown>).has as ComponentName);
     }
-    if ('where' in expr) {
-      const { component, op, value } = expr.where as {
+    if (typeof expr === 'object' && expr !== null && 'where' in expr) {
+      const { component, op, value } = (expr as Record<string, unknown>).where as {
         component: ComponentName;
         op: string;
         value: unknown;
@@ -80,23 +81,24 @@ export class ComponentStore {
         return false;
       });
     }
-    if ('and' in expr) {
-      const exprs = expr.and as ComponentExpr[];
+    if (typeof expr === 'object' && expr !== null && 'and' in expr) {
+      const exprs = (expr as Record<string, unknown>).and as ComponentExpr[];
       const sets = exprs.map((e) => new Set(this.query(e)));
       if (sets.length === 0) return [];
       const [first, ...rest] = sets;
+      if (!first) return [];
       return Array.from(first).filter((id) => rest.every((s) => s.has(id)));
     }
-    if ('or' in expr) {
-      const exprs = expr.or as ComponentExpr[];
+    if (typeof expr === 'object' && expr !== null && 'or' in expr) {
+      const exprs = (expr as Record<string, unknown>).or as ComponentExpr[];
       const set = new Set<EntityId>();
       for (const e of exprs) {
         this.query(e).forEach((id) => set.add(id));
       }
       return Array.from(set);
     }
-    if ('not' in expr) {
-      const inner = expr.not as ComponentExpr;
+    if (typeof expr === 'object' && expr !== null && 'not' in expr) {
+      const inner = (expr as Record<string, unknown>).not as ComponentExpr;
       const excluded = new Set(this.query(inner));
       const all = new Set<EntityId>();
       this.store.forEach((entities) => {
@@ -168,5 +170,3 @@ export class ComponentStore {
     });
   }
 }
-
-export type ComponentExpr = unknown;

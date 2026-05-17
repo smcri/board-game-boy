@@ -7,7 +7,56 @@ import { ComponentName, EntityId, C_Position } from './ecs.js';
 
 // ── Selectors ────────────────────────────────────────────────────────────────
 
-const ComponentExpr: z.ZodType<unknown> = z.lazy(() =>
+/**
+ * Recursive types are awkward in Zod; we declare the TS shape explicitly so
+ * downstream packages can `import type { Effect, Condition, Selector,
+ * ComponentExpr } from '@bgb/shared'` without losing precision.
+ */
+export type ComponentExpr =
+  | { has: string }
+  | { where: { component: string; op: ConditionOpKind; value?: unknown } }
+  | { and: ComponentExpr[] }
+  | { or: ComponentExpr[] }
+  | { not: ComponentExpr };
+
+export type Selector =
+  | { kind: 'self' }
+  | { kind: 'opponent' }
+  | { kind: 'all_players' }
+  | { kind: 'player_choice' }
+  | { kind: 'entity'; id: string }
+  | { kind: 'query'; expr: ComponentExpr }
+  | { kind: 'adjacent_to'; node: string }
+  | { kind: 'random_from'; query: ComponentExpr; n: number };
+
+export type ConditionOpKind =
+  | 'eq' | 'neq' | 'gte' | 'lte' | 'in' | 'not_in'
+  | 'and' | 'or' | 'not'
+  | 'count_at_least' | 'component_present' | 'path_equals';
+
+export type Condition =
+  | { op: 'eq' | 'neq' | 'path_equals'; path: string; value?: unknown }
+  | { op: 'gte' | 'lte'; path: string; value: number }
+  | { op: 'in' | 'not_in'; path: string; values: unknown[] }
+  | { op: 'and' | 'or'; conds: Condition[] }
+  | { op: 'not'; cond: Condition }
+  | { op: 'count_at_least'; selector: Selector; n: number }
+  | { op: 'component_present'; entity: string | Selector; component: string };
+
+export type PhaseTarget = 'next' | 'end_turn' | { name: string };
+
+export type Effect =
+  | { verb: 'set'; entity: string | Selector; component: string; field: string; value?: unknown }
+  | { verb: 'inc'; entity: string | Selector; component: string; field: string; delta: number }
+  | { verb: 'move'; entity: string | Selector; to: { on: 'board' | 'deck' | 'hand' | 'region' | 'off_board'; node?: string; slot?: number } }
+  | { verb: 'choose'; player: string | Selector; options: unknown[]; into: string }
+  | { verb: 'if'; cond: Condition; then: Effect[]; else?: Effect[] }
+  | { verb: 'phase'; target: PhaseTarget }
+  | { verb: 'atomic'; steps: Effect[] }
+  | { verb: 'random.roll'; d: number; n: number; into: string }
+  | { verb: 'random.pick'; from: ComponentExpr; n: number; into: string };
+
+const ComponentExpr: z.ZodType<ComponentExpr> = z.lazy(() =>
   z.union([
     z.object({ has: ComponentName }),
     z.object({ where: z.object({ component: ComponentName, op: ConditionOp, value: z.unknown() }) }),
@@ -17,7 +66,7 @@ const ComponentExpr: z.ZodType<unknown> = z.lazy(() =>
   ]),
 );
 
-export const Selector: z.ZodType<unknown> = z.lazy(() =>
+export const SelectorSchema: z.ZodType<Selector> = z.lazy(() =>
   z.union([
     z.object({ kind: z.literal('self') }),
     z.object({ kind: z.literal('opponent') }),
@@ -40,7 +89,7 @@ export const ConditionOp = z.enum([
 
 const Path = z.string().min(1); // dot.path against state, e.g. "current_player.Counter.heat"
 
-export const Condition: z.ZodType<unknown> = z.lazy(() =>
+export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
   z.discriminatedUnion('op', [
     z.object({ op: z.literal('eq'), path: Path, value: z.unknown() }),
     z.object({ op: z.literal('neq'), path: Path, value: z.unknown() }),
@@ -48,28 +97,28 @@ export const Condition: z.ZodType<unknown> = z.lazy(() =>
     z.object({ op: z.literal('lte'), path: Path, value: z.number() }),
     z.object({ op: z.literal('in'), path: Path, values: z.array(z.unknown()) }),
     z.object({ op: z.literal('not_in'), path: Path, values: z.array(z.unknown()) }),
-    z.object({ op: z.literal('and'), conds: z.array(Condition).min(1) }),
-    z.object({ op: z.literal('or'), conds: z.array(Condition).min(1) }),
-    z.object({ op: z.literal('not'), cond: Condition }),
-    z.object({ op: z.literal('count_at_least'), selector: Selector, n: z.number().int().nonnegative() }),
-    z.object({ op: z.literal('component_present'), entity: z.union([EntityId, Selector]), component: ComponentName }),
+    z.object({ op: z.literal('and'), conds: z.array(ConditionSchema).min(1) }),
+    z.object({ op: z.literal('or'), conds: z.array(ConditionSchema).min(1) }),
+    z.object({ op: z.literal('not'), cond: ConditionSchema }),
+    z.object({ op: z.literal('count_at_least'), selector: SelectorSchema, n: z.number().int().nonnegative() }),
+    z.object({ op: z.literal('component_present'), entity: z.union([EntityId, SelectorSchema]), component: ComponentName }),
     z.object({ op: z.literal('path_equals'), path: Path, value: z.unknown() }),
   ]),
 );
 
 // ── Verbs ────────────────────────────────────────────────────────────────────
 
-const EntityRef = z.union([EntityId, Selector]);
-const PlayerRef = z.union([EntityId, Selector]);
+const EntityRef = z.union([EntityId, SelectorSchema]);
+const PlayerRef = z.union([EntityId, SelectorSchema]);
 const ComponentField = z.string().min(1);
 
-export const PhaseTarget = z.union([
+export const PhaseTargetSchema = z.union([
   z.literal('next'),
   z.literal('end_turn'),
   z.object({ name: z.string().min(1) }),
 ]);
 
-export const Effect: z.ZodType<unknown> = z.lazy(() =>
+export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
   z.discriminatedUnion('verb', [
     z.object({
       verb: z.literal('set'),
@@ -98,18 +147,18 @@ export const Effect: z.ZodType<unknown> = z.lazy(() =>
     }),
     z.object({
       verb: z.literal('if'),
-      cond: Condition,
-      then: z.array(Effect),
-      else: z.array(Effect).optional(),
+      cond: ConditionSchema,
+      then: z.array(EffectSchema),
+      else: z.array(EffectSchema).optional(),
     }),
     z.object({
       verb: z.literal('phase'),
-      target: PhaseTarget,
+      target: PhaseTargetSchema,
     }),
     // Wrappers
     z.object({
       verb: z.literal('atomic'),
-      steps: z.array(Effect).min(1),
+      steps: z.array(EffectSchema).min(1),
     }),
     z.object({
       verb: z.literal('random.roll'),
@@ -126,13 +175,23 @@ export const Effect: z.ZodType<unknown> = z.lazy(() =>
   ]),
 );
 
+/**
+ * Back-compat aliases so older code can still `import { Effect, Condition,
+ * Selector } from '@bgb/shared'` and get *both* the runtime schema and the TS
+ * type (the type wins at type-position, the value wins at value-position).
+ */
+export const Effect = EffectSchema;
+export const Condition = ConditionSchema;
+export const Selector = SelectorSchema;
+export const PhaseTarget = PhaseTargetSchema;
+
 // ── Event log entry ─────────────────────────────────────────────────────────
 
 export const EventLogEntry = z.object({
   ts: z.number(), // ms since epoch
   action_id: z.string(),
   player_entity: EntityId.optional(),
-  effects_applied: z.array(Effect),
+  effects_applied: z.array(EffectSchema),
   rolls: z.array(z.object({ d: z.number(), values: z.array(z.number()) })).optional(),
   picks: z.array(z.object({ from_count: z.number(), picked: z.array(EntityId) })).optional(),
   rolled_back: z.boolean().optional(),

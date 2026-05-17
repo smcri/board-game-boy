@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { EntityDecl } from './ecs.js';
-import { Effect, Condition } from './dsl.js';
+import { EffectSchema, ConditionSchema, type Condition as ConditionT } from './dsl.js';
 
 export const ActionParam = z.object({
   name: z.string().min(1),
@@ -15,19 +15,22 @@ export const ActionDecl = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   params: z.array(ActionParam).optional(),
-  preconditions: z.array(Condition).optional(),
-  effect: z.array(Effect).min(1),
+  preconditions: z.array(ConditionSchema).optional(),
+  effect: z.array(EffectSchema).min(1),
 });
 export type ActionDecl = z.infer<typeof ActionDecl>;
 
-export const WinCondition = z.object({
+export const WinConditionSchema = z.object({
   id: z.string().min(1),
   description: z.string(),
   /** Any player satisfying `when` wins. */
-  when: Condition,
+  when: ConditionSchema,
   /** Optional explicit selector for "winner" if multiple players could satisfy. */
   resolves_to: z.enum(['current_player', 'most_points', 'last_remaining']).optional(),
 });
+export type WinCondition = z.infer<typeof WinConditionSchema>;
+/** Back-compat alias (used at both value and type positions). */
+export const WinCondition = WinConditionSchema;
 
 // ── Conflicts ────────────────────────────────────────────────────────────────
 
@@ -81,7 +84,7 @@ export const RulesDsl = z.object({
   /** Actions players can dispatch. */
   actions: z.array(ActionDecl).min(1),
   /** Win conditions checked by the win-condition system after each effect. */
-  win_conditions: z.array(WinCondition).min(1),
+  win_conditions: z.array(WinConditionSchema).min(1),
   /** Conflicts collected during the rules agent run. */
   conflicts: z.array(Conflict).default([]),
 });

@@ -9,7 +9,7 @@ import { ComponentStore } from './ecs.js';
 import { EventLog } from './event-log.js';
 import { evaluateCondition } from './conditions.js';
 import { resolveSelector } from './selectors.js';
-import { EntityId, ComponentName, Effect } from '@bgb/shared';
+import { EntityId, ComponentName, Effect, type ComponentExpr } from '@bgb/shared';
 
 export type ChoiceResolver = (options: unknown[]) => Promise<unknown>;
 
@@ -74,11 +74,14 @@ export class RuleExecutor {
         ? await this.choiceResolver(options)
         : window.prompt(`Choose: ${options.join(', ')}`);
       if (choice !== null) {
+        const intoKey = eff.into as string | undefined;
+        if (!intoKey) return;
         const meta = store.getComponent(player, 'Meta') || { json: {} };
-        (meta as Record<string, unknown>).json = {
-          ...(meta as Record<string, unknown>).json,
-          [eff.into as string]: choice,
-        };
+        (meta as Record<string, unknown>).json = Object.assign(
+          {},
+          (meta as Record<string, unknown>).json,
+          { [intoKey as string]: choice },
+        );
         store.addComponent(player, 'Meta', meta);
       }
     }
@@ -126,28 +129,32 @@ export class RuleExecutor {
         values.push(Math.floor(rng() * d) + 1);
       }
       // Record in event log (done by caller)
+      const intoKey = eff.into as string | undefined;
+      if (!intoKey) return;
       const meta = store.getComponent(currentPlayer, 'Meta') || { json: {} };
-      (meta as Record<string, unknown>).json = {
-        ...(meta as Record<string, unknown>).json,
-        [eff.into as string]: values,
-      };
+      (meta as Record<string, unknown>).json = Object.assign(
+        {},
+        (meta as Record<string, unknown>).json,
+        { [intoKey as string]: values },
+      );
       store.addComponent(currentPlayer, 'Meta', meta);
     }
 
     if (verb === 'random.pick') {
-      const candidates = store.query(eff.from as unknown);
+      const candidates = store.query(eff.from as ComponentExpr);
       const n = Math.min(eff.n as number, candidates.length);
       const picked: EntityId[] = [];
       for (let i = 0; i < n; i++) {
         const idx = Math.floor(rng() * candidates.length);
-        picked.push(candidates[idx]);
+        picked.push(candidates[idx] as EntityId);
         candidates.splice(idx, 1);
       }
+      const intoKey = (eff.into as string) || '';
+      if (!intoKey) return;
       const meta = store.getComponent(currentPlayer, 'Meta') || { json: {} };
-      (meta as Record<string, unknown>).json = {
-        ...(meta as Record<string, unknown>).json,
-        [eff.into as string]: picked,
-      };
+      const metaJson = (meta as Record<string, unknown>).json as Record<string, unknown>;
+      metaJson[intoKey] = picked;
+      (meta as Record<string, unknown>).json = metaJson;
       store.addComponent(currentPlayer, 'Meta', meta);
     }
   }

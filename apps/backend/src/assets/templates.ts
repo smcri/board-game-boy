@@ -39,7 +39,11 @@ export function makeBoardGrid(rows: number, cols: number, palette: string[]): st
  * @returns SVG string
  */
 export function makePiece(label: string, color: string, viewbox = '0 0 100 100'): string {
-  const [minX, minY, width, height] = viewbox.split(' ').map(Number);
+  const parts = viewbox.split(' ').map(Number);
+  const minX = parts[0] ?? 0;
+  const minY = parts[1] ?? 0;
+  const width = parts[2] ?? 100;
+  const height = parts[3] ?? 100;
 
   return `<svg viewBox="${viewbox}" xmlns="http://www.w3.org/2000/svg">
     <circle cx="${minX + width / 2}" cy="${minY + height / 2}" r="${Math.min(width, height) / 2 - 2}" fill="${color}" stroke="#333" stroke-width="2"/>

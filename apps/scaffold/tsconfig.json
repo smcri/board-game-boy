@@ -5,7 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@bgb/shared": ["../../packages/shared/src"]
-    }
+    },
+    "types": ["vitest/globals", "vite/client"]
   },
   "include": ["src"],
   "references": [{ "path": "../../packages/shared" }]

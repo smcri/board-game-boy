@@ -3,7 +3,7 @@
  * Iterates entities from rules_dsl and emits AssetEntry items by role.
  * Generates a color palette via LLM.
  */
-import { BaseChatModel } from '@langchain/core/language_model/chat_model';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BuildState, AssetManifest, AssetEntry } from '@bgb/shared';
 import { emitSseEvent } from '../sse.js';
 import { makeCardTemplate, makeBoardGrid, makePiece } from '../assets/templates.js';
@@ -32,7 +32,7 @@ export async function assetAgent(state: BuildState, _llm: BaseChatModel): Promis
     mkdirSync(assetDir, { recursive: true });
 
     const entries: AssetEntry[] = [];
-    const palette = generatePalette();
+    const palette: string[] = generatePalette();
 
     // Iterate entities and create assets
     for (const entity of state.rules_dsl.entities) {
@@ -50,7 +50,7 @@ export async function assetAgent(state: BuildState, _llm: BaseChatModel): Promis
 
       // Generate appropriate SVG
       let svg: string;
-      const color = palette[Math.floor(Math.random() * palette.length)];
+      const color: string = (palette[Math.floor(Math.random() * palette.length)] ?? palette[0])!;
 
       switch (role) {
         case 'board':
@@ -112,13 +112,13 @@ export async function assetAgent(state: BuildState, _llm: BaseChatModel): Promis
  * Generate a simple color palette.
  */
 function generatePalette(): string[] {
-  const palettes = [
+  const palettes: string[][] = [
     ['#E8F5E9', '#4CAF50', '#2E7D32', '#FFF59D'],
     ['#F3E5F5', '#9C27B0', '#6A1B9A', '#FFB300'],
     ['#E3F2FD', '#2196F3', '#1565C0', '#FFA726'],
     ['#FCE4EC', '#E91E63', '#AD1457', '#00BCD4'],
   ];
-  return palettes[Math.floor(Math.random() * palettes.length)];
+  return (palettes[Math.floor(Math.random() * palettes.length)] ?? palettes[0])!;
 }
 
 /**
@@ -126,5 +126,5 @@ function generatePalette(): string[] {
  */
 function extractViewbox(svg: string): string {
   const match = svg.match(/viewBox="([^"]+)"/);
-  return match ? match[1] : '0 0 100 100';
+  return (match && match[1]) || '0 0 100 100';
 }

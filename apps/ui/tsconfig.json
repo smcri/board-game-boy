@@ -3,7 +3,8 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "types": ["vitest/globals", "vite/client"]
   },
   "include": ["src"],
   "references": [{ "path": "../../packages/shared" }]

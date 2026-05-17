@@ -37,7 +37,7 @@ const ResumeRequest = z.object({
  * Build the Fastify server.
  */
 export async function buildServer() {
-  const fastify = Fastify({ logger });
+  const fastify = Fastify({ logger: true });
 
   // CORS
   await fastify.register(cors, {

@@ -10,7 +10,6 @@ import pdfParse from 'pdf-parse';
 import pLimit from 'p-limit';
 import { cacheGet, cachePut } from '../db.js';
 import { logger } from '../logger.js';
-import { createHash } from 'crypto';
 
 export interface ExtractedContent {
   url: string;
@@ -57,7 +56,7 @@ export function classifySourceType(url: string): ExtractedContent['source_type']
  */
 export async function fetchAndExtract(url: string): Promise<ExtractedContent> {
   // Check cache first
-  const cached = cacheGet(url);
+  const cached = await cacheGet(url);
   if (cached) {
     logger.debug({ url }, 'Cache hit');
     return {
@@ -88,8 +87,8 @@ export async function fetchAndExtract(url: string): Promise<ExtractedContent> {
     const buffer = await response.arrayBuffer();
 
     if (contentType.startsWith('application/pdf') || url.toLowerCase().endsWith('.pdf')) {
-      // Parse PDF
-      const data = await pdfParse(buffer);
+      // Parse PDF — pdf-parse expects a Node Buffer, not an ArrayBuffer.
+      const data = await pdfParse(Buffer.from(buffer));
       text = data.text;
     } else {
       // Parse HTML via Readability
@@ -101,7 +100,7 @@ export async function fetchAndExtract(url: string): Promise<ExtractedContent> {
     }
 
     // Cache the extracted text
-    cachePut(url, text, source_type);
+    await cachePut(url, text, source_type);
 
     return {
       url,

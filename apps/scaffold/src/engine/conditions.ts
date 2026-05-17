@@ -119,6 +119,7 @@ function getPathValue(store: ComponentStore, path: string, currentPlayer: Entity
   let current: unknown = entity;
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
+    if (!part) return undefined;
     if (typeof current === 'string') {
       // current is an entity ID, fetch component
       const comp = store.getComponent(current as EntityId, part as any);

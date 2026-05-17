@@ -56,22 +56,22 @@ describe('ConflictModal', () => {
       <ConflictModal open={true} conflicts={sampleConflicts} onResolve={vi.fn()} />,
     );
 
-    expect(screen.getByText('Official Rules')).toBeInTheDocument();
+    expect(screen.getByText(/Official Rules/)).toBeInTheDocument();
   });
 
   it('should call onResolve with correct decision map when submitted', () => {
     const mockOnResolve = vi.fn();
-    const { container } = render(
+    render(
       <ConflictModal open={true} conflicts={sampleConflicts} onResolve={mockOnResolve} />,
     );
 
-    // Select "Accept" for first conflict.
-    const acceptRadios = container.querySelectorAll('input[type="radio"][value="accept"]');
-    fireEvent.click(acceptRadios[0]);
+    // Select "Accept" for first conflict (Movement speed).
+    const acceptButtons = screen.getAllByRole('radio', { name: /Accept authoritative/i });
+    fireEvent.click(acceptButtons[0]!);
 
-    // Select "Override" for second conflict.
-    const overrideRadios = container.querySelectorAll('input[type="radio"][value="override"]');
-    fireEvent.click(overrideRadios[1]);
+    // Select "Override" for second conflict (Win condition).
+    const overrideButtons = screen.getAllByRole('radio', { name: /Override with custom value/i });
+    fireEvent.click(overrideButtons[1]!);
 
     // Submit.
     const submitButton = screen.getByText('Submit decisions');
@@ -97,13 +97,13 @@ describe('ConflictModal', () => {
 
   it('should enable submit after all conflicts are decided', () => {
     const mockOnResolve = vi.fn();
-    const { container } = render(
+    render(
       <ConflictModal open={true} conflicts={sampleConflicts} onResolve={mockOnResolve} />,
     );
 
-    const acceptRadios = container.querySelectorAll('input[type="radio"][value="accept"]');
-    fireEvent.click(acceptRadios[0]);
-    fireEvent.click(acceptRadios[1]);
+    const acceptButtons = screen.getAllByRole('radio', { name: /Accept authoritative/i });
+    fireEvent.click(acceptButtons[0]!);
+    fireEvent.click(acceptButtons[1]!);
 
     const submitButton = screen.getByText('Submit decisions') as HTMLButtonElement;
     expect(submitButton.disabled).toBe(false);

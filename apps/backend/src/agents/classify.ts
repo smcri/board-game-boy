@@ -3,7 +3,7 @@
  * Outputs prompt_type and normalized game name into state.metadata.
  * See doc 05 for orchestrator context.
  */
-import { BaseChatModel } from '@langchain/core/language_model/chat_model';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BuildState } from '@bgb/shared';
 import { emitSseEvent } from '../sse.js';
 

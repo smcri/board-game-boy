@@ -3,7 +3,23 @@
 > Turn a board-game name or a rules document into a browser-playable game,
 > using an agentic build pipeline and a generic deterministic runtime.
 
-**Status:** Phase 0 — design documents only. Implementation begins in Phase 1.
+**Status:** Phase 1 implementation landed. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the runbook.
+
+## Quickstart
+
+```bash
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm dev          # backend on :8787, UI on :5173
+```
+
+For an end-to-end smoke test without the UI:
+```bash
+pnpm smoke --backend http://localhost:8787 \
+           --llm ollama --model llama3.1:8b \
+           --prompt "Tic-Tac-Toe" --mode known_game
+```
 
 ---
 

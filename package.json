@@ -16,7 +16,7 @@
     "dev:scaffold": "pnpm --filter @bgb/scaffold dev",
     "lint": "pnpm -r --parallel lint",
     "test": "pnpm -r --parallel test",
-    "typecheck": "pnpm -r --parallel typecheck",
+    "typecheck": "pnpm --filter @bgb/shared build && pnpm -r --filter '!@bgb/shared' --parallel typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
     "publish-bundle": "tsx scripts/publish-bundle.ts",
     "smoke": "tsx scripts/smoke.ts"

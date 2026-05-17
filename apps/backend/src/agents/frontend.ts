@@ -2,7 +2,7 @@
  * Frontend agent: generates BoardConfig and writes per-bundle config files.
  * Mostly deterministic from rules_dsl; optional small LLM call for render hints.
  */
-import { BaseChatModel } from '@langchain/core/language_model/chat_model';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BuildState, BoardConfig } from '@bgb/shared';
 import { emitSseEvent } from '../sse.js';
 import { writeFileSync, mkdirSync } from 'fs';
@@ -27,23 +27,29 @@ export async function frontendAgent(state: BuildState, _llm: BaseChatModel): Pro
     });
 
     // Generate BoardConfig from rules_dsl entities
-    const boardNodes = state.rules_dsl.entities
+    const boardNodes: BoardConfig['nodes'] = state.rules_dsl.entities
       .filter((e) => {
         const boardNode = e.components.BoardNode;
         return boardNode && typeof boardNode === 'object';
       })
-      .map((e) => ({
-        id: e.id,
-        coords: (e.components.BoardNode as { coords?: Record<string, unknown> })?.coords,
-        neighbours: (e.components.Adjacency as { to?: string[] })?.to,
-      }));
+      .map((e) => {
+        const boardNodeComp = e.components.BoardNode as { coords?: Record<string, string | number> };
+        const adjacencyComp = e.components.Adjacency as { to?: string[] };
+        return {
+          id: e.id,
+          coords: boardNodeComp?.coords,
+          neighbours: adjacencyComp?.to,
+        };
+      });
 
     // Determine board kind from entities
     let kind: BoardConfig['kind'] = 'graph';
-    if (boardNodes.length > 0) {
+    if (state.rules_dsl.entities.length > 0) {
       const firstBoardNode = state.rules_dsl.entities[0];
-      const boardNodeComp = firstBoardNode.components.BoardNode as { kind?: string };
-      kind = (boardNodeComp?.kind as BoardConfig['kind']) || 'graph';
+      if (firstBoardNode) {
+        const boardNodeComp = firstBoardNode.components.BoardNode as { kind?: string };
+        kind = (boardNodeComp?.kind as BoardConfig['kind']) || 'graph';
+      }
     }
 
     const boardConfig: BoardConfig = {

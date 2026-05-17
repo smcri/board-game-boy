@@ -4,7 +4,7 @@
  */
 
 import { ComponentStore } from './ecs.js';
-import { EntityId } from '@bgb/shared';
+import { EntityId, type ComponentExpr } from '@bgb/shared';
 
 export type Selector = unknown;
 
@@ -47,7 +47,7 @@ export function resolveSelector(
   }
 
   if (kind === 'query') {
-    return store.query(sel.expr as unknown);
+    return store.query(sel.expr as ComponentExpr);
   }
 
   if (kind === 'adjacent_to') {
@@ -62,7 +62,7 @@ export function resolveSelector(
   if (kind === 'random_from') {
     // This is evaluated at effect execution time with the RNG.
     // For now, return all matches; the executor will select n of them.
-    return store.query(sel.query as unknown);
+    return store.query(sel.query as ComponentExpr);
   }
 
   return [];

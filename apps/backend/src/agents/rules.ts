@@ -6,7 +6,7 @@
  * - Generates RulesDsl via structured LLM output
  * - Reconciles conflicts
  */
-import { BaseChatModel } from '@langchain/core/language_model/chat_model';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BuildState, RulesDsl, COMPONENT_REGISTRY } from '@bgb/shared';
 import { runSearch } from '../web/search.js';
 import { bucketByPriority } from '../web/bucket.js';
