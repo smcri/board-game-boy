@@ -101,7 +101,8 @@ export const SquareBoard: React.FC<SquareBoardProps> = ({
   const handleNodeClick = (nodeId: string) => {
     if (!onAction) return;
     if (selectedPiece) {
-      onAction('move_piece', { piece: selectedPiece, to: nodeId });
+      // Convention: primary movement action is always named 'move' (Option A)
+      onAction('move', { piece: selectedPiece, to: nodeId });
       setSelectedPiece(null);
       return;
     }
@@ -146,7 +147,7 @@ export const SquareBoard: React.FC<SquareBoardProps> = ({
               stroke={selectedPiece ? '#fbbf24' : '#555'}
               strokeWidth={selectedPiece ? 1.5 : 0.5}
               style={{ cursor: onAction ? 'pointer' : 'default' }}
-              onClick={() => handleNodeClick(nodeId)}
+              onClick={() => { console.log('[square click]', nodeId); handleNodeClick(nodeId); }}
             />
           );
         })}
@@ -169,10 +170,10 @@ export const SquareBoard: React.FC<SquareBoardProps> = ({
           const label = getPieceLabel(token, identity);
           const isSelected = selectedPiece === eid;
 
-          // Stack offset
+          // Stack offset — spread pieces on same square so they don't fully overlap
           const stack = piecesOnNode.get(nodeId) ?? [];
           const stackIdx = stack.indexOf(eid);
-          const ox = stackIdx * 5; const oy = stackIdx * -5;
+          const ox = stackIdx * 10; const oy = stackIdx * -10;
           const r = SQUARE_SIZE / 2 - 5;
 
           return (
@@ -180,8 +181,12 @@ export const SquareBoard: React.FC<SquareBoardProps> = ({
               key={eid}
               style={{ cursor: onAction && ownerPlayer === currentPlayer ? 'grab' : 'default' }}
               onClick={(e) => {
-                e.stopPropagation();
-                if (!onAction || ownerPlayer !== currentPlayer) return;
+                console.log('[piece click]', { eid, ownerPlayer, currentPlayer, onAction: !!onAction });
+                if (!onAction || ownerPlayer !== currentPlayer) {
+                  // Not my piece — don't block, let click fall through to square
+                  return;
+                }
+                e.stopPropagation(); // Only stop propagation for own pieces
                 setSelectedPiece(isSelected ? null : eid);
               }}
             >

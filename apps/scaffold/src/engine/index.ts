@@ -71,6 +71,7 @@ export class GameEngine {
     }
 
     const currentPlayer = getCurrentPlayer(this.store);
+    console.log(`[dispatch] action=${actionId} currentPlayer=${currentPlayer} params=`, params);
     if (!currentPlayer) {
       console.error('No current player');
       return;
@@ -79,9 +80,12 @@ export class GameEngine {
     // Check preconditions
     if (action.preconditions && action.preconditions.length > 0) {
       const { evaluateCondition } = await import('./conditions.js');
-      const allMet = action.preconditions.every((cond) =>
-        evaluateCondition(this.store, cond, currentPlayer),
-      );
+      const results = action.preconditions.map((cond) => {
+        const result = evaluateCondition(this.store, cond, currentPlayer);
+        console.log(`[precondition] op=${(cond as Record<string,unknown>).op} result=${result}`, cond);
+        return result;
+      });
+      const allMet = results.every(Boolean);
       if (!allMet) {
         console.warn(`Preconditions not met for action ${actionId}`);
         return;

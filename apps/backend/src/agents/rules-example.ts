@@ -85,7 +85,7 @@ export const EXAMPLE_RULES_DSL: RulesDsl = {
   ],
   actions: [
     {
-      id: 'roll_and_move',
+      id: 'move',
       name: 'Roll die and advance token',
       description:
         'Current player rolls one d6, advances their token by the result, then ' +

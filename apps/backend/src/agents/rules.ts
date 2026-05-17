@@ -231,6 +231,7 @@ Every field marked MANDATORY below MUST be present and non-empty in your output.
   - **DO NOT** generate individual \`sq_0_0\` or \`square_N\` node entities — the assembler expands the topology automatically.
   - Token \`Position.node\` should reference the node id the assembler will generate (e.g. \`"sq_0_0"\` for grid, \`"square_0"\` for track).
 - \`actions\`: MANDATORY. MUST contain at least 1 action. Each action MUST have \`id\` (string) and \`effect\` (array with ≥1 items).
+- **PRIMARY MOVEMENT ACTION**: The main action that moves a piece/token on the board MUST have \`id: "move"\`. Other actions can have any id. This is required so the game engine can wire up click-to-move interaction.
 - \`actions[*].preconditions[*].op\`: MANDATORY discriminator. MUST be one of the ALLOWED CONDITION OPS. **Do NOT use "kind" as the field name.**
 - \`actions[*].effect[*].verb\`: MANDATORY discriminator. MUST be one of the ALLOWED EFFECT VERBS. **Do NOT use "op" as the field name for effects.**
 - \`win_conditions\`: MANDATORY. MUST contain at least 1 entry. Each MUST have \`id\`, \`description\`, and \`when\` (a Condition object with an \`op\` discriminator).
