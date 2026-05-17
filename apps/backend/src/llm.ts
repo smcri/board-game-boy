@@ -10,6 +10,7 @@ import { ChatOllama } from '@langchain/community/chat_models/ollama';
 import { LlmProvider, PROVIDER_NEEDS_KEY } from '@bgb/shared';
 import { logger } from './logger.js';
 import { config } from './config.js';
+import { normalizeDslOutput } from './agents/dsl-normalizer.js';
 
 /**
  * Create an LLM instance for the given provider and model.
@@ -146,7 +147,8 @@ function wrapWithJsonFallback(native: any, llm: BaseChatModel, schema: unknown) 
         // the Zod schema and return the parsed object on success. We re-validate
         // defensively, because some providers (xAI/Grok via ChatOpenAI baseURL)
         // bypass the tool-calling layer and return loosely-shaped JS objects.
-        const parsed = safeParse(nativeResult);
+        const normalized = normalizeDslOutput(nativeResult);
+        const parsed = safeParse(normalized);
         if (parsed.success) return parsed.data;
         nativeErr = parsed.error;
         nativeRaw = nativeResult;
@@ -170,7 +172,7 @@ function wrapWithJsonFallback(native: any, llm: BaseChatModel, schema: unknown) 
         const text = String(result.content ?? '');
         const jsonText = extractJsonBlock(text);
         try {
-          const parsed = JSON.parse(jsonText);
+          const parsed = normalizeDslOutput(JSON.parse(jsonText));
           if (schema && typeof (schema as { safeParse?: unknown }).safeParse === 'function') {
             const validated = (schema as { safeParse: (v: unknown) => { success: boolean; data?: unknown; error?: unknown } }).safeParse(parsed);
             if (validated.success) return validated.data;
