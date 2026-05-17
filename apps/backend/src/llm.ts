@@ -102,21 +102,40 @@ export function withStructuredOutput(
  * to a plain-text JSON-instruction prompt with manual parsing.
  */
 function wrapWithJsonFallback(native: any, llm: BaseChatModel, schema: unknown) {
+  const safeParse = (raw: unknown) => {
+    if (schema && typeof (schema as { safeParse?: unknown }).safeParse === 'function') {
+      return (schema as { safeParse: (v: unknown) => { success: boolean; data?: unknown; error?: unknown } }).safeParse(raw);
+    }
+    return { success: true as const, data: raw };
+  };
   return {
     async invoke(messages: any) {
+      let nativeErr: unknown = null;
+      let nativeRaw: unknown = null;
       try {
-        return await native.invoke(messages);
+        const nativeResult = await native.invoke(messages);
+        // Native runnables in @langchain/langgraph 0.2 already validate against
+        // the Zod schema and return the parsed object on success. We re-validate
+        // defensively, because some providers (xAI/Grok via ChatOpenAI baseURL)
+        // bypass the tool-calling layer and return loosely-shaped JS objects.
+        const parsed = safeParse(nativeResult);
+        if (parsed.success) return parsed.data;
+        nativeErr = parsed.error;
+        nativeRaw = nativeResult;
       } catch (err) {
+        nativeErr = err;
+      }
+      // Native path failed or produced invalid shape — fall back to JSON prompt.
+      {
+        const err = nativeErr;
         // Native path failed — try the JSON-instruction fallback.
-        const fallbackMessages = [
-          ...messages,
-          {
-            role: 'user',
-            content:
-              'Respond with ONLY a single valid JSON object that matches the requested schema. ' +
-              'No prose, no markdown fences. If unsure, return the closest valid object you can.',
-          },
-        ];
+        const fallbackHint =
+          'Respond with ONLY a single valid JSON object that matches the requested schema. ' +
+          'No prose, no markdown fences. If unsure, return the closest valid object you can.' +
+          (nativeRaw
+            ? `\n\nYour previous attempt produced this (which failed schema validation):\n${JSON.stringify(nativeRaw).slice(0, 1500)}`
+            : '');
+        const fallbackMessages = [...messages, { role: 'user', content: fallbackHint }];
         const result = await llm.invoke(fallbackMessages as any);
         const text = String(result.content ?? '');
         const jsonText = extractJsonBlock(text);
