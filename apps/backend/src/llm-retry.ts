@@ -62,8 +62,14 @@ export async function llmJsonRetry<T extends z.ZodTypeAny>(
   };
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  /** Hard timeout for a single LLM invoke — 45 seconds. */
-  const LLM_TIMEOUT_MS = 45_000;
+  /**
+   * Hard timeout per LLM invoke.
+   * Groq's LPU hardware is fast (2-20s typical); if it takes >30s it's hung.
+   * Other providers (OpenAI, Anthropic, xAI, Ollama) get 120s for complex prompts.
+   */
+  const providerName = (llm.constructor?.name ?? '').toLowerCase();
+  const isGroq = providerName.includes('groq') || providerName.includes('chatgroq');
+  const LLM_TIMEOUT_MS = isGroq ? 30_000 : 120_000;
 
   const invokeWithTimeout = async (
     structuredLlm: ReturnType<typeof withStructuredOutput>,
