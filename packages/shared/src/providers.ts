@@ -14,11 +14,18 @@ export type BuildMode = z.infer<typeof BuildMode>;
 
 /** Default model per LLM provider. Used when the UI does not supply one. */
 export const DEFAULT_MODELS: Record<LlmProvider, string> = {
-  openai: 'gpt-4o-mini',
-  anthropic: 'claude-3-5-haiku-latest',
+  // "Strongest within sensible cost" defaults, verified against each
+  // provider's live docs and deprecation pages as of 2026-05-17.
+  //   - OpenAI:    gpt-5.4 (current flagship before 5.5 — strong, cheaper)
+  //   - Anthropic: claude-sonnet-4-6 (~99% of Opus 4.6 perf at ~40% cost)
+  //   - Ollama:    llama3.1:8b (broadest local hardware compatibility)
+  //   - Groq:      llama-3.3-70b-versatile (free tier flagship Llama)
+  //   - xAI Grok:  grok-4.3 (xAI's flagship; older slugs redirect here)
+  openai: 'gpt-5.4',
+  anthropic: 'claude-sonnet-4-6',
   ollama: 'llama3.1:8b',
-  groq: 'llama-3.1-70b-versatile',
-  xai_grok: 'grok-2-latest',
+  groq: 'llama-3.3-70b-versatile',
+  xai_grok: 'grok-4.3',
 };
 
 /** Human-friendly label per provider. Used in dropdowns / status text. */

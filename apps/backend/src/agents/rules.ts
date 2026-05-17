@@ -7,15 +7,13 @@
  * - Reconciles conflicts
  */
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { BuildState, RulesDsl, COMPONENT_REGISTRY } from '@bgb/shared';
 import { runSearch } from '../web/search.js';
 import { bucketByPriority } from '../web/bucket.js';
 import { fetchAndExtract } from '../web/fetcher.js';
 import { emitSseEvent } from '../sse.js';
 import { logger } from '../logger.js';
-import { withStructuredOutput } from '../llm.js';
-import { z } from 'zod';
+import { llmJsonRetry } from '../llm-retry.js';
 
 /**
  * Rules agent node.
@@ -120,42 +118,17 @@ export async function rulesAgent(state: BuildState, llm: BaseChatModel): Promise
     const systemPrompt = buildSystemPrompt();
     const userPrompt = `User prompt:\n${state.prompt}\n\nExtracted rules:\n${extractedContent}`;
 
-    let rules_dsl: RulesDsl | null = null;
-    let parseError: string | null = null;
-
-    try {
-      const structuredLlm = withStructuredOutput(llm, RulesDsl, { name: 'RulesDsl' });
-      const result = await structuredLlm.invoke([
-        new SystemMessage(systemPrompt),
-        new HumanMessage(userPrompt),
-      ]);
-
-      if (result instanceof z.ZodError) {
-        parseError = result.message;
-      } else {
-        rules_dsl = result;
-      }
-    } catch (err) {
-      parseError = String(err);
-      logger.warn({ error: parseError }, 'LLM structured output failed; retrying...');
-      // Retry once more with relaxed constraints
-      try {
-        const structuredLlm = withStructuredOutput(llm, RulesDsl, { name: 'RulesDsl' });
-        const result = await structuredLlm.invoke([
-          new SystemMessage(systemPrompt + '\n\nBe lenient with the schema; fill in defaults where needed.'),
-          new HumanMessage(userPrompt),
-        ]);
-        if (!(result instanceof z.ZodError)) {
-          rules_dsl = result;
-          parseError = null;
-        }
-      } catch (retryErr) {
-        parseError = String(retryErr);
-      }
-    }
+    const { value: rules_dsl, attempts, error: parseError } = await llmJsonRetry({
+      llm,
+      schema: RulesDsl,
+      schemaName: 'RulesDsl',
+      systemPrompt,
+      userPrompt,
+      tag: 'rules_agent',
+    });
 
     if (!rules_dsl) {
-      throw new Error(`Failed to generate RulesDsl: ${parseError}`);
+      throw new Error(`Failed to generate RulesDsl after ${attempts} attempts: ${parseError}`);
     }
 
     return {
@@ -199,15 +172,101 @@ function buildSystemPrompt(): string {
   const componentNames = Object.keys(COMPONENT_REGISTRY);
   const verbList = ['set', 'inc', 'move', 'choose', 'if', 'phase', 'atomic', 'random.roll', 'random.pick'];
 
-  return `You are an expert board game rule parser. Your task is to convert informal game descriptions into a structured RulesDsl JSON object.
+  return `You are an expert board game rule parser. Convert informal game descriptions into a strict RulesDsl JSON object.
 
-The output must:
-1. Identify all game entities (players, board, cards, tokens, etc.) and assign them appropriate ECS components.
-2. Define all player actions (moves, turns, trades, etc.) with preconditions and effects.
-3. Specify win conditions.
-4. Use only these components: ${componentNames.join(', ')}.
-5. Use only these effect verbs: ${verbList.join(', ')}.
-6. When in doubt about rules, create a Conflict entry with severity 'rule_detail'.
+## OUTPUT SCHEMA (every field is required unless marked optional)
 
-Always output valid JSON matching the RulesDsl schema. Do not include markdown formatting.`;
+{
+  "dsl_version": "1.0",                          // EXACTLY the string "1.0"
+  "metadata": {                                  // object, required
+    "game_name": "string",                       // REQUIRED
+    "summary": "optional one-line description",  // OPTIONAL
+    "min_players": 1,                            // REQUIRED positive int
+    "max_players": 4                             // REQUIRED positive int
+  },
+  "entities": [                                  // array of objects with id + components
+    {
+      "id": "unique_string_id",                  // REQUIRED string
+      "components": {                            // OBJECT (NOT array) - keys are component names
+        "componentName": { /* component props */ }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "unique_action_id",                  // REQUIRED string
+      "name": "Human-readable action name",
+      "actor": "player",                         // who performs it
+      "preconditions": [                         // array of OBJECTS (NOT strings)
+        { "kind": "phase_is", "phase": "main" }
+      ],
+      "effect": [                                // REQUIRED array of effect verbs
+        { "op": "set", "path": "players.{current}.score", "value": 1 }
+      ]
+    }
+  ],
+  "win_conditions": [
+    {
+      "id": "win1",                              // REQUIRED string
+      "description": "Three in a row",           // REQUIRED string
+      "when": { "kind": "expression", "expr": "..." }  // REQUIRED object
+    }
+  ],
+  "conflicts": [                                 // array; can be empty []
+    {
+      "id": "c1",                                // REQUIRED string
+      "rule": "Description of the ambiguous rule",
+      "sources": ["url or source label"],
+      "confidence": 0.6,                         // number 0..1
+      "severity": "rule_detail"
+    }
+  ]
+}
+
+## ALLOWED COMPONENTS (use exactly these names as keys in entity.components):
+${componentNames.join(', ')}
+
+## ALLOWED EFFECT VERBS (use only these as "op" values):
+${verbList.join(', ')}
+
+## RULES
+- Output STRICT JSON only. No markdown fences, no commentary.
+- Every entity MUST have a string \`id\` and an OBJECT (not array) \`components\`.
+- Every action MUST have a string \`id\` and an ARRAY \`effect\` of operation objects.
+- Every win_condition MUST have \`id\`, \`description\`, AND \`when\` (an object).
+- Every conflict (if any) MUST have \`id\`, \`rule\`, \`sources\` (array), and \`confidence\` (number).
+- If you are unsure about a specific rule, ADD it to \`conflicts\` rather than inventing.
+
+## CONCRETE EXAMPLE (Tic-Tac-Toe — copy this shape exactly)
+
+{
+  "dsl_version": "1.0",
+  "metadata": { "game_name": "Tic-Tac-Toe", "summary": "Two players place X and O on a 3x3 grid; first to three in a row wins.", "min_players": 2, "max_players": 2 },
+  "entities": [
+    { "id": "board", "components": { "Identity": { "kind": "board" }, "BoardNode": { "kind": "grid_square" } } },
+    { "id": "player1", "components": { "Identity": { "kind": "player" }, "Player": { "seat": 1 } } },
+    { "id": "player2", "components": { "Identity": { "kind": "player" }, "Player": { "seat": 2 } } }
+  ],
+  "actions": [
+    {
+      "id": "place_mark",
+      "name": "Place a mark",
+      "actor": "player",
+      "preconditions": [
+        { "kind": "phase_is", "phase": "main" }
+      ],
+      "effect": [
+        { "op": "set", "path": "board.cells.{row}.{col}", "value": "{current_player_mark}" }
+      ]
+    }
+  ],
+  "win_conditions": [
+    {
+      "id": "three_in_a_row",
+      "description": "Place three marks in a row, column, or diagonal",
+      "when": { "kind": "expression", "expr": "any_line_complete(board, current_player_mark)" }
+    }
+  ],
+  "conflicts": []
+}`;
 }
