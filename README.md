@@ -1,13 +1,11 @@
 ---
 title: Board Game Builder
-emoji: 🎲
-colorFrom: indigo
-colorTo: purple
+emoji: 🐳
+colorFrom: blue
+colorTo: green
 sdk: docker
 app_port: 7860
-pinned: false
 license: mit
-short_description: Turn any board game name into a browser-playable game using AI
 ---
 
 # Agentic Board Game Builder
